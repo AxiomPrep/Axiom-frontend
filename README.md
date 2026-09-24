@@ -15,7 +15,7 @@ Open http://localhost:3000
 `.env.local`:
 
 ```
-API_ORIGIN=https://axiom-backend-dwlc.onrender.com
+API_ORIGIN=https://your-backend.example.com
 ```
 
 Without the backend, a lot of screens still open and fall back to local/demo data after a 401.
