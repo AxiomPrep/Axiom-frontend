@@ -35,6 +35,44 @@ type RelatedPyq = {
   attempt?: { id: string };
 };
 
+type YtPlayer = {
+  seekTo: (seconds: number, allowSeekAhead: boolean) => void;
+  getCurrentTime: () => number;
+  setPlaybackRate: (rate: number) => void;
+  playVideo: () => void;
+  destroy?: () => void;
+};
+
+type YtWindow = Window & {
+  YT?: { Player: new (el: string | HTMLElement, opts: Record<string, unknown>) => YtPlayer };
+  onYouTubeIframeAPIReady?: () => void;
+};
+
+function loadYoutubeApi() {
+  if (typeof window === "undefined") return Promise.resolve();
+  const w = window as YtWindow;
+  if (w.YT?.Player) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    const prev = w.onYouTubeIframeAPIReady;
+    w.onYouTubeIframeAPIReady = () => {
+      prev?.();
+      resolve();
+    };
+    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(tag);
+    }
+    const started = Date.now();
+    const timer = window.setInterval(() => {
+      if (w.YT?.Player || Date.now() - started > 8000) {
+        window.clearInterval(timer);
+        resolve();
+      }
+    }, 50);
+  });
+}
+
 const SPEEDS = [0.75, 1, 1.25, 1.5] as const;
 const PYQ_LIMIT: Record<"jee_main" | "neet" | "jee_adv", number> = {
   jee_main: 10,
@@ -48,6 +86,8 @@ function LecturePlayerInner() {
   const router = useRouter();
   const teacherId = search.get("teacher");
   const videoRef = useRef<HTMLVideoElement>(null);
+  const youtubeFrameRef = useRef<HTMLIFrameElement>(null);
+  const youtubePlayerRef = useRef<YtPlayer | null>(null);
   const banked = useRef(0);
   const [tab, setTab] = useState<"timeline" | "notes" | "related">("timeline");
   const [exam, setExam] = useState<"jee_main" | "neet" | "jee_adv">("jee_main");
@@ -55,8 +95,10 @@ function LecturePlayerInner() {
   const [pyqError, setPyqError] = useState<string | null>(null);
   const [pyqLoading, setPyqLoading] = useState(false);
   const [speed, setSpeed] = useState(1);
+  const [embedSrc, setEmbedSrc] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
   const [starting, setStarting] = useState(false);
+  const speedRef = useRef(1);
 
   const { data, error, loading } = useApi<ContentResponse>(`/catalog/contents/${params.contentId}`);
   const content = data?.content || null;
@@ -66,6 +108,7 @@ function LecturePlayerInner() {
   );
   const playUrl = data?.play_url || null;
   const youtubeUrl = playUrl ? youtubeEmbedUrl(playUrl) : null;
+  speedRef.current = speed;
 
   const chapterApi = useApi<{ items: { id: string; type: string; module: string | null; sort_order: number }[] }>(
     teacherId && content?.chapter_id ? `/catalog/teachers/${teacherId}/chapters/${content.chapter_id}` : null
@@ -92,10 +135,57 @@ function LecturePlayerInner() {
   }, [content, playUrl, router]);
 
   useEffect(() => {
+    if (!youtubeUrl) {
+      setEmbedSrc(null);
+      return;
+    }
+    const url = new URL(youtubeUrl);
+    url.searchParams.set("origin", window.location.origin);
+    setEmbedSrc(url.toString());
+  }, [youtubeUrl]);
+
+  useEffect(() => {
     const el = videoRef.current;
-    if (!el) return;
-    el.playbackRate = Math.min(speed, 1.5);
+    if (el) el.playbackRate = Math.min(speed, 1.5);
+    youtubePlayerRef.current?.setPlaybackRate?.(Math.min(speed, 1.5));
   }, [speed, playUrl]);
+
+  useEffect(() => {
+    if (!embedSrc) {
+      youtubePlayerRef.current = null;
+      return;
+    }
+    let cancelled = false;
+    let player: YtPlayer | null = null;
+
+    void loadYoutubeApi().then(() => {
+      if (cancelled) return;
+      const w = window as YtWindow;
+      const frame = youtubeFrameRef.current;
+      if (!w.YT?.Player || !frame) return;
+      player = new w.YT.Player(frame, {
+        events: {
+          onReady: (event: { target: YtPlayer }) => {
+            youtubePlayerRef.current = event.target;
+            event.target.setPlaybackRate?.(Math.min(speedRef.current, 1.5));
+          },
+          onStateChange: (event: { data: number }) => {
+            if (event.data === 0) {
+              setCompleted(true);
+              setTab("related");
+            }
+          },
+        },
+      });
+      youtubePlayerRef.current = player;
+    });
+
+    return () => {
+      cancelled = true;
+      youtubePlayerRef.current = null;
+      player?.destroy?.();
+    };
+  }, [embedSrc]);
 
   async function bankWatch(seconds: number) {
     if (seconds < 5) return;
@@ -132,12 +222,23 @@ function LecturePlayerInner() {
   }
 
   function seekBy(delta: number) {
+    const yt = youtubePlayerRef.current;
+    if (yt?.getCurrentTime && yt.seekTo) {
+      yt.seekTo(Math.max(0, yt.getCurrentTime() + delta), true);
+      return;
+    }
     const el = videoRef.current;
     if (!el) return;
     el.currentTime = Math.max(0, el.currentTime + delta);
   }
 
   function seek(seconds: number) {
+    const yt = youtubePlayerRef.current;
+    if (yt?.seekTo) {
+      yt.seekTo(seconds, true);
+      yt.playVideo?.();
+      return;
+    }
     if (!videoRef.current) return;
     videoRef.current.currentTime = seconds;
     void videoRef.current.play();
@@ -207,14 +308,18 @@ function LecturePlayerInner() {
           </div>
 
           <div className="surface overflow-hidden rounded-2xl">
-            {youtubeUrl ? (
+            {embedSrc ? (
               <iframe
+                ref={youtubeFrameRef}
+                id="axiom-lecture-player"
                 title={content.title}
-                src={youtubeUrl}
+                src={embedSrc}
                 className="aspect-video w-full bg-black"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
               />
+            ) : youtubeUrl ? (
+              <div className="aspect-video w-full bg-black" />
             ) : playUrl ? (
               <video
                 ref={videoRef}

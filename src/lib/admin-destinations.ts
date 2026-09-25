@@ -95,8 +95,8 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
       {
         id: "questions",
         label: "Question set",
-        hint: "Excel of questions (question, A–D, correct, explanation).",
-        sources: ["excel"],
+        hint: "Excel (question, A–D, correct, explanation) or a question PDF. A notes PDF is saved as a book.",
+        sources: ["excel", "pdf"],
       },
       {
         id: "solutions_doc",
@@ -124,13 +124,13 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
       {
         id: "paper_excel",
         label: "Question sheet",
-        hint: "Excel or CSV of the paper.",
-        sources: ["excel"],
+        hint: "Excel/CSV of the paper, or a question PDF. Notes PDFs stay as the paper book.",
+        sources: ["excel", "pdf"],
       },
       {
         id: "paper_pdf",
         label: "Question paper",
-        hint: "Upload the paper PDF or paste a PDF link.",
+        hint: "Upload the paper PDF or paste a PDF link. Question papers are extracted; notes stay as a book.",
         sources: ["pdf", "pdf_link"],
       },
       {
@@ -210,8 +210,8 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
       {
         id: "quiz_set",
         label: "Quiz question set",
-        hint: "Excel of questions for that quiz tier.",
-        sources: ["excel"],
+        hint: "Excel of questions, or a question PDF. Notes PDFs are saved as a book.",
+        sources: ["excel", "pdf"],
       },
     ],
   },
@@ -227,8 +227,8 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
       {
         id: "bank",
         label: "Question bank",
-        hint: "Excel bank tagged by chapter and level.",
-        sources: ["excel"],
+        hint: "Excel bank, or a question PDF. Notes PDFs are saved as a book.",
+        sources: ["excel", "pdf"],
       },
     ],
   },
@@ -244,8 +244,8 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
       {
         id: "fst_set",
         label: "Full syllabus test",
-        hint: "Excel set for the mock.",
-        sources: ["excel"],
+        hint: "Excel set, or a question PDF. Notes PDFs are saved as a book.",
+        sources: ["excel", "pdf"],
       },
       {
         id: "fst_video",
@@ -373,20 +373,30 @@ export function isYoutubeUrl(value: string) {
   }
 }
 
+function youtubePlayerSrc(id: string) {
+  const url = new URL(`https://www.youtube.com/embed/${id}`);
+  url.searchParams.set("enablejsapi", "1");
+  url.searchParams.set("rel", "0");
+  return url.toString();
+}
+
 export function youtubeEmbedUrl(value: string) {
   try {
     const url = new URL(value);
     const host = url.hostname.replace(/^www\./, "");
     if (host === "youtu.be") {
       const id = url.pathname.split("/").filter(Boolean)[0];
-      return id ? `https://www.youtube.com/embed/${id}` : null;
+      return id ? youtubePlayerSrc(id) : null;
     }
     if (host === "youtube.com" || host === "m.youtube.com") {
-      if (url.pathname.startsWith("/embed/")) return value;
+      if (url.pathname.startsWith("/embed/")) {
+        const id = url.pathname.split("/").filter(Boolean)[1];
+        return id ? youtubePlayerSrc(id) : value;
+      }
       const shorts = url.pathname.match(/^\/shorts\/([^/]+)/);
-      if (shorts?.[1]) return `https://www.youtube.com/embed/${shorts[1]}`;
+      if (shorts?.[1]) return youtubePlayerSrc(shorts[1]);
       const id = url.searchParams.get("v");
-      return id ? `https://www.youtube.com/embed/${id}` : null;
+      return id ? youtubePlayerSrc(id) : null;
     }
     return null;
   } catch {
