@@ -90,7 +90,7 @@ export default function AdminPage() {
         const current = await readAdminSession();
         if (current && "email" in current && current.email) {
           setSession(current as AdminSession);
-          const listed = await listAdminContents();
+          const listed = await listAdminContents(current.email);
           setContents(listed.contents);
           void listAdminTeachers()
             .then((faculty) => setTeachers(faculty.teachers))
@@ -141,7 +141,7 @@ export default function AdminPage() {
     try {
       const next = await requestAdminAccess(email);
       setSession(next);
-      const listed = await listAdminContents();
+      const listed = await listAdminContents(next.email);
       setContents(listed.contents);
       void listAdminTeachers()
         .then((faculty) => setTeachers(faculty.teachers))
@@ -173,27 +173,28 @@ export default function AdminPage() {
     setError(null);
     setNotice(null);
     try {
-      const form = new FormData();
-      form.set("title", title);
-      form.set("description", description);
-      form.set("destination_id", destination.id);
-      form.set("slot_id", slot.id);
-      form.set("youtube_url", youtubeUrl);
-      form.set("pdf_url", pdfUrl);
-      form.set("subject", subject);
-      form.set("class_level", classLevel);
-      form.set("chapter", resolvedChapter);
-      form.set("tier", tier);
-      form.set("exam", exam);
-      form.set("year", year);
-      form.set("teacher", resolvedTeacher);
-      form.set("module", moduleKey);
-      form.set("tool_kind", toolKind);
-      form.set("quiz_tier", quizTier);
-      form.set("is_published", published ? "true" : "false");
-      form.set("is_free_preview", preview ? "true" : "false");
-      if (file) form.set("file", file);
-      const { content } = await createAdminContent(form);
+      if (!session?.email) throw new Error("Admin session required.");
+      if (file && !youtubeUrl && !pdfUrl) {
+        throw new Error("On the live site, save a YouTube or PDF link. Files cannot be written to Netlify disk.");
+      }
+      const { content } = await createAdminContent(
+        {
+          title,
+          description,
+          destination_id: destination.id,
+          slot_id: slot.id,
+          youtube_url: youtubeUrl,
+          pdf_url: pdfUrl,
+          subject,
+          class_level: classLevel,
+          chapter: resolvedChapter,
+          teacher: resolvedTeacher,
+          module: moduleKey,
+          is_published: published ? "true" : "false",
+          is_free_preview: preview ? "true" : "false",
+        },
+        session.email,
+      );
       setContents((current) => [content, ...current]);
       const faculty = await listAdminTeachers().catch(() => ({ teachers }));
       setTeachers(faculty.teachers);
@@ -203,9 +204,11 @@ export default function AdminPage() {
       setPdfUrl("");
       setFile(null);
       setNotice(
-        content.live_id
-          ? `Saved for ${destination.title} and sent to the live catalog.`
-          : `Saved for ${destination.title} on this admin desk.`,
+        content.extracted_summary
+          ? content.extracted_summary
+          : content.live_id
+            ? `Saved for ${destination.title} and sent to the live catalog.`
+            : `Saved for ${destination.title} on this admin desk.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save that upload.");
@@ -327,7 +330,7 @@ export default function AdminPage() {
           {destination.id === "top-teachers" ? (
             <p className="mt-3 rounded-xl border border-line px-3 py-2 text-xs leading-relaxed text-zinc-400">
               Related Q’s on the lecture are built automatically from PYQ Bank questions for this chapter. Do not
-              upload them on the teacher. Add those questions under PYQ Bank as Excel.
+              upload them on the teacher. Add those questions under PYQ Bank as Excel or a question PDF.
             </p>
           ) : null}
 
@@ -470,6 +473,11 @@ export default function AdminPage() {
                     {item.class_level ? ` · Class ${item.class_level}` : ""}
                     {item.chapter ? ` · ${item.chapter}` : ""}
                     {item.tier ? ` · Tier ${item.tier}` : ""}
+                    {item.extracted_kind === "questions"
+                      ? ` · ${item.extracted_questions?.length || 0} questions`
+                      : item.extracted_kind === "notes"
+                        ? " · book / notes"
+                        : ""}
                   </p>
                   {item.file_name ? <p className="mt-1 text-xs text-zinc-500">{item.file_name}</p> : null}
                   {item.external_url ? (
