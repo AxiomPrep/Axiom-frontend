@@ -196,12 +196,17 @@ function PracticeContent() {
         query.set("tierName", tier?.name || `Tier ${selectedTier}`);
         router.push(`/practice/player?${query}`);
       })
-      .catch((err: unknown) => {
-        setLoadError(
-          err instanceof ApiClientError
-            ? err
-            : new ApiClientError(500, "error", err instanceof Error ? err.message : "Could not start practice."),
-        );
+      .catch(() => {
+        const query = new URLSearchParams({
+          subject: currentSubject.slug,
+          class: selectedClass || "11",
+          chapter: chapterId,
+          tier: String(selectedTier),
+          subjectName: currentSubject.name,
+          chapterName: currentChapter?.name || "",
+          tierName: tier?.name || `Tier ${selectedTier}`,
+        });
+        router.push(`/practice/player?${query}`);
       });
   };
 

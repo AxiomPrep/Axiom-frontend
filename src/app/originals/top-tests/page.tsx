@@ -29,8 +29,8 @@ export default function TopTestsPage() {
   const tests = data?.tests ?? [];
 
   async function start(test: Fst) {
-    if (test.id.startsWith("admin_")) {
-      router.push((test as Fst & { href?: string }).href || `/catalog/contents/${test.id}/file`);
+    if (test.id.startsWith("admin_") || test.id.startsWith("mock_")) {
+      router.push((test as Fst & { href?: string }).href || `/practice/player?tierName=${encodeURIComponent(test.title)}`);
       return;
     }
     setBusy(test.id);

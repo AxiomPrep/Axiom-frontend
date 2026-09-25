@@ -1,4 +1,4 @@
-import { CHAPTERS, PRACTICE_TIERS, SUBJECTS } from "@/data/mockCurriculum";
+import { CHAPTERS, PRACTICE_TIERS, PYQ_EXAM_SETS, SUBJECTS } from "@/data/mockCurriculum";
 import type { AdminContent } from "@/lib/admin";
 import { facultySlug, chapterRecord } from "@/lib/faculty-catalog";
 import { readerHref } from "@/lib/reader";
@@ -130,6 +130,38 @@ export function curriculumChapters(subjectId: string, classLevel: string) {
     jee_count: chapter.jeeCount,
     neet_count: chapter.neetCount,
     adv_count: chapter.advCount,
+  }));
+}
+
+export function curriculumExams(filters: {
+  subject?: string | null;
+  classLevel?: string | null;
+  chapter?: string | null;
+}) {
+  const subject = (filters.subject || "").toLowerCase();
+  const klass = filters.classLevel === "12" ? "12" : filters.classLevel === "11" ? "11" : "";
+  const chapter = (filters.chapter || "").toLowerCase();
+  return PYQ_EXAM_SETS.filter((exam) => {
+    if (subject && exam.subject !== subject) return false;
+    if (klass && exam.classNum !== klass) return false;
+    if (chapter && exam.chapter !== chapter) return false;
+    return true;
+  }).map((exam) => ({
+    id: exam.id,
+    exam_name: exam.examName,
+    name: exam.examName,
+    title: exam.examName,
+    year: String(exam.year),
+    shift: exam.shift || "",
+    duration_minutes: exam.durationMinutes,
+    question_count: exam.questionCount,
+    difficulty: exam.difficulty,
+    subject: exam.subject,
+    class_level: exam.classNum,
+    chapter: exam.chapter,
+    chapter_id: exam.chapter,
+    href: `/practice/player?subject=${exam.subject}&class=${exam.classNum}&chapter=${exam.chapter}&pyq=${exam.id}&tierName=${encodeURIComponent(exam.examName)}`,
+    read_url: null,
   }));
 }
 

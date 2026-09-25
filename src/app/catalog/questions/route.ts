@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { MOCK_QUESTIONS } from "@/data/mockCurriculum";
 import { listDeskContents } from "@/lib/desk-contents";
 import { collectExtractedQuestions } from "@/lib/extracted-questions";
 import { proxyLiveJson } from "@/lib/live-api";
@@ -44,5 +45,26 @@ export async function GET(req: Request) {
 
   const live = await proxyLiveJson<{ questions?: unknown[] } | unknown[]>(req, `/api/questions${url.search}`);
   const liveList = Array.isArray(live) ? live : live?.questions || [];
-  return NextResponse.json({ questions: liveList, source: liveList.length ? "live" : "empty" });
+  if (liveList.length) {
+    return NextResponse.json({ questions: liveList, source: "live" });
+  }
+
+  const mock = MOCK_QUESTIONS.filter((item) => {
+    if (subject && item.subject !== subject) return false;
+    if (chapter && item.chapter !== chapter) return false;
+    if (tier && String(item.tier) !== String(tier)) return false;
+    return true;
+  });
+  const fallback = (mock.length ? mock : MOCK_QUESTIONS).slice(0, 8).map((item) => ({
+    id: item.id,
+    question: item.question,
+    prompt: item.question,
+    options: item.options,
+    correct_option: item.correctOption,
+    correctOption: item.correctOption,
+    explanation: item.explanation,
+    solution: item.explanation,
+    formula: item.formula,
+  }));
+  return NextResponse.json({ questions: fallback, source: "mock" });
 }

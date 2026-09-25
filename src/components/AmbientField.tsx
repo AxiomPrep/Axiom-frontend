@@ -1,5 +1,5 @@
-/** Flip to true to bring the floating science signs back. */
-export const AMBIENT_FIELD_ENABLED = false;
+/** Flip to false to hide the floating science signs. */
+export const AMBIENT_FIELD_ENABLED = true;
 
 const SYMBOLS = [
   { char: "π", top: "8%", left: "6%", size: "2.4rem", delay: "0s", dur: "18s" },

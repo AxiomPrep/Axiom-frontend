@@ -10,6 +10,7 @@ export async function GET(req: Request, ctx: Ctx) {
     req,
     `/api/practice/subjects/${slug}/classes/${classLevel}/chapters`,
   );
-  const chapters = live?.chapters?.length ? live.chapters : curriculumChapters(slug, classLevel);
-  return NextResponse.json({ chapters });
+  const seeded = curriculumChapters(slug, classLevel);
+  const chapters = live?.chapters?.length ? live.chapters : seeded;
+  return NextResponse.json({ chapters: chapters.length ? chapters : seeded });
 }

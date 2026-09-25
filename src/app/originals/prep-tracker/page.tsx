@@ -33,7 +33,7 @@ export default function PrepTrackerPage() {
   if (curr?.subjectId) qs.set("subject_id", curr.subjectId);
   if (curr?.classLevel) qs.set("class", curr.classLevel);
   const { data, error, loading } = useApi<{ tracker: TrackerRow[] }>(
-    `/api/originals/prep-tracker${qs.toString() ? `?${qs}` : ""}`
+    `/catalog/originals/prep-tracker${qs.toString() ? `?${qs}` : ""}`
   );
   const rows = data?.tracker ?? [];
   const avg = useMemo(() => {

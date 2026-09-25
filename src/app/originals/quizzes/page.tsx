@@ -50,15 +50,17 @@ export default function QuizzesPage() {
         title: result.test?.title,
       });
       router.push(`/attempts/${result.attempt.id}`);
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Could not start quiz");
+    } catch {
+      router.push(
+        `/practice/player?chapter=${curr.chapterId}&quizTier=${tier}&tierName=${encodeURIComponent(tier)}`,
+      );
     } finally {
       setBusy(null);
     }
   }
 
   async function startNamed(id: string, title: string) {
-    if (id.startsWith("admin_")) {
+    if (id.startsWith("admin_") || id.startsWith("mock_")) {
       router.push(`/practice/player?set=${id}&chapter=${curr?.chapterId || ""}&tierName=${encodeURIComponent(title)}`);
       return;
     }
@@ -103,14 +105,9 @@ export default function QuizzesPage() {
         <p className="mt-1 text-sm text-zinc-300">
           {discord.data?.description || "Doubt-solving, peer interaction, and direct mentorship on Discord."}
         </p>
-        <a
-          href={discord.data?.discord_invite_url || "/originals/community"}
-          target="_blank"
-          rel="noreferrer"
-          className="btn-primary mt-3 h-9 px-4 text-sm"
-        >
+        <Link href="/coming-soon" className="btn-primary mt-3 inline-flex h-9 items-center px-4 text-sm">
           Open Discord
-        </a>
+        </Link>
       </div>
 
       <h2 className="mb-3 text-lg font-bold">Tiers</h2>

@@ -1,4 +1,5 @@
 import type { AdminSourceKind } from "@/lib/admin-destinations";
+import { inferToolKind } from "@/lib/catalog";
 
 export type AdminSession = {
   email: string;
@@ -96,7 +97,14 @@ export function mapLiveContent(row: Record<string, unknown>, adminEmail = "admin
     exam: meta("exam"),
     year: meta("year"),
     tier: meta("tier"),
-    tool_kind: meta("tool_kind"),
+    tool_kind:
+      dest === "originals-tools"
+        ? inferToolKind({
+            tool_kind: meta("tool_kind") || (typeof row.tool_kind === "string" ? row.tool_kind : null),
+            title: String(row.title || ""),
+            description,
+          })
+        : meta("tool_kind") || (typeof row.tool_kind === "string" ? row.tool_kind : null),
     quiz_tier: meta("quiz_tier"),
     extracted_kind: null,
     extracted_summary: null,
@@ -146,8 +154,9 @@ async function liveAdminFetch<T>(path: string, email: string, init?: RequestInit
     }
     return data as T;
   } catch (err) {
+    if (init?.body instanceof FormData) throw err;
     const status = err && typeof err === "object" && "status" in err ? Number(err.status) : 0;
-    if (path !== "/api/admin/contents" || (status >= 400 && status < 500)) throw err;
+    if (path.split("?")[0] !== "/api/admin/contents" || (status >= 400 && status < 500)) throw err;
     const retryHeaders: Record<string, string> = { "x-admin-email": email };
     if (!(init?.body instanceof FormData)) retryHeaders["Content-Type"] = "application/json";
     return adminFetch<T>("/admin-api/contents", { ...init, headers: retryHeaders });
@@ -175,7 +184,19 @@ export async function listAdminContents(_email: string) {
 }
 
 export function listAdminTeachers() {
-  return adminFetch<{ teachers: { id: string; name: string; subject: string }[] }>("/admin-api/teachers");
+  return adminFetch<{ teachers: { id: string; name: string; subject: string; listed?: boolean }[] }>(
+    "/admin-api/teachers",
+  );
+}
+
+export function createAdminTeacher(name: string, subject: string) {
+  return adminFetch<{ teacher: { id: string; name: string; subject: string; listed?: boolean } }>(
+    "/admin-api/teachers",
+    {
+      method: "POST",
+      body: JSON.stringify({ name, subject }),
+    },
+  );
 }
 
 export function deleteAdminContent(
@@ -207,6 +228,11 @@ function adminDescription(row: Record<string, unknown>) {
     asField(row, "module") ? `module:${asField(row, "module")}` : "",
     asField(row, "teacher") ? `teacher:${asField(row, "teacher")}` : "",
     asField(row, "teacher_id") ? `teacher_id:${asField(row, "teacher_id")}` : "",
+    asField(row, "tool_kind") ? `tool_kind:${asField(row, "tool_kind")}` : "",
+    asField(row, "exam") ? `exam:${asField(row, "exam")}` : "",
+    asField(row, "year") ? `year:${asField(row, "year")}` : "",
+    asField(row, "tier") ? `tier:${asField(row, "tier")}` : "",
+    asField(row, "quiz_tier") ? `quiz_tier:${asField(row, "quiz_tier")}` : "",
   ]
     .filter(Boolean)
     .join("\n");
@@ -224,7 +250,13 @@ export async function createAdminContent(body: FormData | Record<string, unknown
   const file = fileFromRow(body, row);
   const youtubeUrl = asField(row, "youtube_url");
   const pdfUrl = asField(row, "pdf_url") || asField(row, "external_url");
-  const externalUrl = youtubeUrl || pdfUrl;
+  const cleanLink = (value: string) =>
+    /^https?:\/\//i.test(value) && !value.includes("...") ? value : "";
+  const externalUrl = cleanLink(youtubeUrl) || cleanLink(pdfUrl);
+  const title = asField(row, "title") || (file?.name || "").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+  if (title.length < 2) {
+    throw new Error("Title is required.");
+  }
   if (!externalUrl && !file) {
     throw new Error("Add a YouTube or PDF link, or upload a PDF / Excel file.");
   }
@@ -232,42 +264,70 @@ export async function createAdminContent(body: FormData | Record<string, unknown
     throw new Error("That file is over 15 MB. Compress it or use a PDF link.");
   }
   const description = adminDescription(row);
-  const payload = await adminFetch<{
+  let storagePath: string | null = null;
+  if (file) {
+    const signed = await liveAdminFetch<{
+      upload_url: string;
+      storage_path: string;
+      token?: string;
+    }>("/api/uploads/signed-url", email, {
+      method: "POST",
+      body: JSON.stringify({
+        filename: file.name || "upload.pdf",
+        kind: "content",
+      }),
+    });
+    if (!signed.upload_url || !signed.storage_path) {
+      throw new Error("Render did not issue an upload URL.");
+    }
+    const putHeaders: Record<string, string> = {
+      "Content-Type": file.type || "application/pdf",
+    };
+    if (signed.token) putHeaders.Authorization = `Bearer ${signed.token}`;
+    const put = await fetch(signed.upload_url, {
+      method: "PUT",
+      headers: putHeaders,
+      body: file,
+    });
+    if (!put.ok) {
+      throw new Error(`Storage rejected the PDF (${put.status}).`);
+    }
+    storagePath = signed.storage_path;
+  }
+  const payload = await liveAdminFetch<{
     content?: AdminContent;
     file_url?: string | null;
     uploaded_by?: { email?: string };
-  }>("/admin-api/contents", {
+  }>("/api/admin/contents", email, {
     method: "POST",
-    body: (() => {
-      const form = new FormData();
-      form.set("type", youtubeUrl ? "video" : "note_pdf");
-      form.set("title", asField(row, "title"));
-      form.set("description", description);
-      form.set("youtube_url", youtubeUrl);
-      form.set("pdf_url", pdfUrl);
-      form.set("external_url", externalUrl);
-      form.set("destination", asField(row, "destination_id"));
-      form.set("destination_id", asField(row, "destination_id"));
-      form.set("teacher", asField(row, "teacher"));
-      form.set("teacher_id", asField(row, "teacher_id"));
-      form.set("subject", asField(row, "subject"));
-      form.set("chapter", asField(row, "chapter"));
-      form.set("class_level", asField(row, "class_level"));
-      form.set("module", asField(row, "module") || asField(row, "slot_id"));
-      form.set("slot_id", asField(row, "slot_id"));
-      form.set("is_published", asField(row, "is_published") !== "false" ? "true" : "false");
-      form.set("is_free_preview", asField(row, "is_free_preview") === "true" || Boolean(file) ? "true" : "false");
-      if (file) {
-        form.set("file", file, file.name || "upload.pdf");
-        form.set("file_name", file.name || "upload.pdf");
-      }
-      return form;
-    })(),
+    body: JSON.stringify({
+      type: youtubeUrl ? "video" : "note_pdf",
+      title,
+      description,
+      youtube_url: cleanLink(youtubeUrl) || null,
+      pdf_url: cleanLink(pdfUrl) || null,
+      external_url: externalUrl || null,
+      destination: asField(row, "destination_id"),
+      destination_id: asField(row, "destination_id"),
+      teacher: asField(row, "teacher") || null,
+      teacher_id: asField(row, "teacher_id") || null,
+      subject: asField(row, "subject") || null,
+      chapter: asField(row, "chapter") || null,
+      class_level: asField(row, "class_level") || null,
+      module: asField(row, "module") || asField(row, "slot_id") || null,
+      slot_id: asField(row, "slot_id") || null,
+      is_published: asField(row, "is_published") !== "false",
+      is_free_preview: asField(row, "is_free_preview") === "true" || Boolean(file),
+      file_name: file?.name || null,
+      storage_path: storagePath,
+    }),
   });
-  if (!payload.content?.id || !payload.content.live_id) {
+  if (!payload.content?.id) {
     throw new Error("Render did not save that upload. Nothing was kept on this computer.");
   }
-  if (payload.file_url) payload.content.storage_path = payload.file_url;
-  if (file) payload.content.file_name = file.name;
-  return { content: payload.content };
+  const content = mapLiveContent(payload.content, payload.uploaded_by?.email || email);
+  content.live_id = String(payload.content.id);
+  if (payload.file_url) content.storage_path = payload.file_url;
+  if (file) content.file_name = file.name;
+  return { content };
 }

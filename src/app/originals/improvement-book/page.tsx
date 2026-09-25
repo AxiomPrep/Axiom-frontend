@@ -43,7 +43,7 @@ const TABS = [
 export default function ImprovementBookPage() {
   const [source, setSource] = useState("");
   const { data, error, loading } = useApi<BookResponse>(
-    source ? `/api/originals/improvement-book?source=${source}` : "/api/originals/improvement-book"
+    source ? `/catalog/originals/improvement-book?source=${source}` : "/catalog/originals/improvement-book"
   );
   const mistakes = data?.mistakes ?? [];
 
@@ -88,7 +88,7 @@ export default function ImprovementBookPage() {
         !loading && (
           <EmptyState
             title="No mistakes recorded yet"
-            body="Wrong answers from practice, PYQs, quizzes, and tests appear here from /api/originals/improvement-book."
+            body="Wrong answers from practice, PYQs, quizzes, and tests appear here."
           />
         )
       )}

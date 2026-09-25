@@ -1,6 +1,3 @@
-import Link from "next/link";
-import { OriginalsMark } from "@/components/OriginalsMark";
-
 const STATS = [
   { value: "4.8/5", label: "Practice experience" },
   { value: "95%", label: "Students see improvement" },
@@ -87,45 +84,6 @@ export default function Home() {
               <p className="mt-1 text-xs tracking-wide text-zinc-500">{stat.label}</p>
             </div>
           ))}
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
-        <div className="grid gap-4 md:grid-cols-3">
-          <Link href="/top-teachers" className="surface surface-hover group rounded-2xl p-8">
-            <p className="text-xs font-semibold tracking-[0.2em] text-axiom">TOP TEACHERS</p>
-            <h2 className="mt-3 font-display text-[2rem] font-semibold leading-tight">Learn from the masters</h2>
-            <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-              Filter by subject, open a profile, pick a chapter, and start a lecture with notes and
-              related PYQs.
-            </p>
-            <p className="mt-6 text-sm font-medium text-axiom group-hover:text-axiom-hover">
-              Enter directory →
-            </p>
-          </Link>
-          <Link href="/originals" className="surface surface-hover group rounded-2xl p-8">
-            <div className="mb-4 flex items-center gap-3">
-              <OriginalsMark id="modules" size="sm" />
-              <p className="text-xs font-semibold tracking-[0.2em] text-axiom">AXIOM PREP ORIGINALS</p>
-            </div>
-            <h2 className="mt-3 font-display text-[2rem] font-semibold leading-tight">Ten modules. One system.</h2>
-            <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-              Tools, quizzes, custom tests, Improvement Book, Prep Tracker, and full syllabus mocks.
-            </p>
-            <p className="mt-6 text-sm font-medium text-axiom group-hover:text-axiom-hover">
-              Open the hub →
-            </p>
-          </Link>
-          <Link href="/study-hub" className="surface surface-hover group rounded-2xl p-8">
-            <p className="text-xs font-semibold tracking-[0.2em] text-axiom">STUDY HUB</p>
-            <h2 className="mt-3 font-display text-[2rem] font-semibold leading-tight">Timer, To-Do, NCERT</h2>
-            <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-              Subject-wise focus sessions, yesterday’s leftover targets, and a page-flip NCERT shelf.
-            </p>
-            <p className="mt-6 text-sm font-medium text-axiom group-hover:text-axiom-hover">
-              Open Study Hub →
-            </p>
-          </Link>
         </div>
       </section>
 

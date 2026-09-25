@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { listDeskContents } from "@/lib/desk-contents";
-import { deskFileUrl, deskOpenHref, filterDesk } from "@/lib/desk-catalog";
+import { curriculumExams, deskFileUrl, deskOpenHref, filterDesk } from "@/lib/desk-catalog";
 import { proxyLiveJson } from "@/lib/live-api";
 
 export async function GET(req: Request) {
@@ -31,5 +31,15 @@ export async function GET(req: Request) {
     href: deskOpenHref(item),
     read_url: deskFileUrl(item),
   }));
-  return NextResponse.json({ exams: [...extra, ...exams], desk });
+  const subject = url.searchParams.get("subject");
+  const classLevel = url.searchParams.get("class");
+  const chapter = url.searchParams.get("chapter_id") || url.searchParams.get("chapter");
+  const mock =
+    curriculumExams({ subject, classLevel, chapter }).length
+      ? curriculumExams({ subject, classLevel, chapter })
+      : curriculumExams({ subject, classLevel });
+  const merged = [...extra, ...exams];
+  const seen = new Set(merged.map((item) => String((item as { id?: string }).id || "")));
+  const seeded = mock.filter((item) => !seen.has(item.id));
+  return NextResponse.json({ exams: [...merged, ...seeded], desk });
 }

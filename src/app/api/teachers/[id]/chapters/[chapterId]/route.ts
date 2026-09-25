@@ -21,7 +21,9 @@ export async function GET(req: Request, ctx: Ctx) {
     teachersFromUploads(desk),
     liveTeacher?.teacher ? teacherName(liveTeacher.teacher) : null,
   );
-  const deskChapter = faculty ? chapterPayload(faculty.id, chapterId, desk) : null;
+  const deskChapter = faculty
+    ? chapterPayload(faculty.id, chapterId, desk, liveTeacher?.teacher ? teacherName(liveTeacher.teacher) : faculty.name)
+    : null;
 
   if (live?.teacher_id && deskChapter) {
     const items = [...deskChapter.items, ...(live.items || [])].filter(

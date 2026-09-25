@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { listDeskContents } from "@/lib/desk-contents";
 import { deskOpenHref, filterDesk } from "@/lib/desk-catalog";
+import { mockTopTests } from "@/data/mock-originals";
 import { proxyLiveJson } from "@/lib/live-api";
 
 export async function GET(req: Request) {
@@ -29,7 +30,7 @@ export async function GET(req: Request) {
   ];
   return NextResponse.json({
     headline: live?.headline || "Full-fledged mock tests designed strictly on the latest NTA/JAB patterns.",
-    tests,
+    tests: tests.length ? tests : mockTopTests(),
     discussions: videos.map((item) => ({ id: item.id, title: item.title, href: deskOpenHref(item) })),
   });
 }

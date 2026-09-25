@@ -163,7 +163,7 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
     group: "Originals",
     title: "Important Tools",
     href: "/originals/tools",
-    what: "Mindmaps, formula sheets, short notes, laws, reactions, and diagrams.",
+    what: "Pick the tool kind first (full notes, short notes, PYQs, formula sheets, mindmaps, and the rest). Then upload that PDF.",
     where: "Shows on /originals/tools, filtered by tool kind, and opens in the reader.",
     fields: { subject: true, classLevel: true, chapter: true, toolKind: true },
     slots: [

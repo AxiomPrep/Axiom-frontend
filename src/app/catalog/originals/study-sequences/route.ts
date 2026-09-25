@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { listDeskContents } from "@/lib/desk-contents";
 import { deskOpenHref, filterDesk } from "@/lib/desk-catalog";
+import { mockStudySequences } from "@/data/mock-originals";
 import { proxyLiveJson } from "@/lib/live-api";
 
 export async function GET(req: Request) {
@@ -18,5 +19,6 @@ export async function GET(req: Request) {
     steps: [{ step: 1, action: item.source_kind === "youtube" ? "Watch the intro" : "Open the plan" }],
     href: deskOpenHref(item),
   }));
-  return NextResponse.json({ sequences: [...extras, ...(live?.sequences || [])] });
+  const sequences = [...extras, ...(live?.sequences || [])];
+  return NextResponse.json({ sequences: sequences.length ? sequences : mockStudySequences() });
 }

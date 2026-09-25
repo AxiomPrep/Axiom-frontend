@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { TOOL_KIND_LABELS } from "@/lib/catalog";
+import { inferToolKind, TOOL_KIND_LABELS } from "@/lib/catalog";
 import { listDeskContents } from "@/lib/desk-contents";
 import { deskFileUrl, filterDesk } from "@/lib/desk-catalog";
 import { proxyLiveJson } from "@/lib/live-api";
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   const tools = [
     ...desk.map((item) => ({
       id: item.id,
-      kind: item.tool_kind || "short_notes",
+      kind: inferToolKind(item),
       title: item.title,
       external_url: item.external_url,
       storage_path: item.storage_path,

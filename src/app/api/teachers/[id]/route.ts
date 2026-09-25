@@ -12,7 +12,7 @@ export async function GET(req: Request, ctx: Ctx) {
   const desk = await listDeskContents();
   const faculty = resolveCatalogFaculty(id, teachersFromUploads(desk), live?.teacher ? teacherName(live.teacher) : null);
   const deskContents = faculty
-    ? teacherUploads(desk, faculty.id).map((item) => ({
+    ? teacherUploads(desk, faculty.id, null, live?.teacher ? teacherName(live.teacher) : faculty.name).map((item) => ({
         id: item.id,
         title: item.title,
         type: item.type,

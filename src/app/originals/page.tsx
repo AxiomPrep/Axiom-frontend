@@ -11,7 +11,7 @@ export default function OriginalsHubPage() {
       <PageHeader
         eyebrow="Curriculum system"
         title="Axiom Prep Originals"
-        subtitle="Eleven modules for tools, quizzes, custom tests, tracking, Study Hub, and full syllabus mocks."
+        subtitle="Tools, quizzes, custom tests, tracking, Study Hub, and full syllabus mocks."
       />
       <p className="-mt-6 mb-10 text-sm text-zinc-500">
         Timer, To-Do, and NCERT open in{" "}

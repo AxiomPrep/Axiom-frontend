@@ -113,9 +113,27 @@ export const TOOL_KIND_LABELS: Record<string, string> = {
   short_notes: "Short Notes",
   formula_sheet: "Formula Sheets",
   full_notes: "Full Notes",
+  pyq: "PYQs",
   important_laws: "Important Laws",
   important_methods: "Important Methods",
   important_reactions: "Important Reactions",
   roadmap_problems: "Roadmap Problems",
   biology_diagrams: "Biology Diagrams",
 };
+
+export function inferToolKind(opts: { tool_kind?: string | null; title?: string | null; description?: string | null }) {
+  const stored = (opts.tool_kind || "").trim();
+  if (stored && TOOL_KIND_LABELS[stored]) return stored;
+  const hay = `${opts.title || ""} ${opts.description || ""}`.toLowerCase();
+  if (/\bpyqs?\b/.test(hay) || hay.includes("previous year")) return "pyq";
+  if (hay.includes("full note") || hay.includes("full fledged") || hay.includes("full-fledge")) return "full_notes";
+  if (hay.includes("formula")) return "formula_sheet";
+  if (hay.includes("mindmap") || hay.includes("mind map")) return "mindmap";
+  if (hay.includes("short note")) return "short_notes";
+  if (hay.includes("important law") || hay.includes("laws")) return "important_laws";
+  if (hay.includes("important method") || hay.includes("methods")) return "important_methods";
+  if (hay.includes("reaction")) return "important_reactions";
+  if (hay.includes("diagram")) return "biology_diagrams";
+  if (hay.includes("roadmap")) return "roadmap_problems";
+  return stored || "short_notes";
+}

@@ -74,7 +74,6 @@ export function resolveCatalogFaculty(id: string, extras: AdminTeacher[] = [], l
 export function teachersFromUploads(contents: AdminContent[]): AdminTeacher[] {
   const byId = new Map<string, AdminTeacher>();
   for (const item of contents) {
-    if (item.destination_id && item.destination_id !== "top-teachers") continue;
     const name = item.teacher?.trim();
     if (!name) continue;
     const id = facultySlug(name);
@@ -117,22 +116,27 @@ export function chapterRecord(value: string) {
   };
 }
 
-function contentBelongsToTeacher(item: AdminContent, teacherId: string) {
+function contentBelongsToTeacher(item: AdminContent, teacherId: string, liveName?: string | null) {
   const raw = item.teacher?.trim() || "";
   if (!raw) return false;
   const faculty = findFacultyTeacher(teacherId);
-  const aliases = [teacherId, faculty?.id, faculty?.name, faculty ? facultySlug(faculty.name) : ""]
+  const aliases = [teacherId, liveName, faculty?.id, faculty?.name, faculty ? facultySlug(faculty.name) : ""]
     .filter(Boolean)
     .map((value) => facultySlug(String(value)));
   const token = facultySlug(raw);
-  return aliases.includes(token) || raw === teacherId || raw === faculty?.name;
+  return aliases.includes(token) || raw === teacherId || raw === liveName || raw === faculty?.name;
 }
 
-export function teacherUploads(contents: AdminContent[], teacherId: string, classLevel?: string | null) {
+export function teacherUploads(
+  contents: AdminContent[],
+  teacherId: string,
+  classLevel?: string | null,
+  liveName?: string | null,
+) {
   return contents.filter((item) => {
     if (!item.is_published) return false;
     if (item.destination_id && item.destination_id !== "top-teachers") return false;
-    if (!contentBelongsToTeacher(item, teacherId)) return false;
+    if (!contentBelongsToTeacher(item, teacherId, liveName)) return false;
     if (classLevel === "11" || classLevel === "12") {
       const stored = item.class_level || "";
       if (stored && stored !== classLevel && !(classLevel === "12" && stored === "dropper")) return false;
@@ -158,7 +162,7 @@ export function toContentItem(item: AdminContent): ContentItem {
 }
 
 export function modulesPayload(teacher: Teacher, contents: AdminContent[], classLevel?: string | null) {
-  const rows = teacherUploads(contents, teacher.id, classLevel);
+  const rows = teacherUploads(contents, teacher.id, classLevel, teacherName(teacher));
   const byChapter = new Map<string, ChapterSummary>();
   const popular: PopularContent[] = [];
 
@@ -202,8 +206,13 @@ export function modulesPayload(teacher: Teacher, contents: AdminContent[], class
   };
 }
 
-export function chapterPayload(teacherId: string, chapterId: string, contents: AdminContent[]) {
-  const rows = teacherUploads(contents, teacherId).filter((item) => {
+export function chapterPayload(
+  teacherId: string,
+  chapterId: string,
+  contents: AdminContent[],
+  liveName?: string | null,
+) {
+  const rows = teacherUploads(contents, teacherId, null, liveName).filter((item) => {
     if (!item.chapter) return false;
     const chapter = chapterRecord(item.chapter);
     return chapter.id === chapterId || facultySlug(item.chapter) === chapterId;

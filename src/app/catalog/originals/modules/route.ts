@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { listDeskContents } from "@/lib/desk-contents";
 import { deskFileUrl, filterDesk, moduleKeyForDesk } from "@/lib/desk-catalog";
 import { toContentItem } from "@/lib/faculty-catalog";
+import { mockTopModules } from "@/data/mock-originals";
 import { proxyLiveJson } from "@/lib/live-api";
 
 export async function GET(req: Request) {
@@ -31,5 +32,13 @@ export async function GET(req: Request) {
     })),
     ...(live?.modules || []),
   ];
-  return NextResponse.json({ modules });
+  return NextResponse.json({
+    modules: modules.length
+      ? modules
+      : mockTopModules({
+          subject: url.searchParams.get("subject_id") || url.searchParams.get("subject"),
+          classLevel: url.searchParams.get("class"),
+          chapter: url.searchParams.get("chapter_id") || url.searchParams.get("chapter"),
+        }),
+  });
 }

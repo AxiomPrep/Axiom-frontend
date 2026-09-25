@@ -36,7 +36,6 @@ export default function SettingsPage() {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [consistency, setConsistency] = useState<string | null>(null);
   const [coins, setCoins] = useState<string | null>(null);
-  const [discordUrl, setDiscordUrl] = useState<string | null>(null);
 
   useEffect(() => onAuthChange(setUser), []);
 
@@ -67,17 +66,15 @@ export default function SettingsPage() {
       } catch {
         /* profile fields stay at the session values */
       }
-      const [noteRes, consistencyRes, coinRes, discordRes] = await Promise.allSettled([
+      const [noteRes, consistencyRes, coinRes] = await Promise.allSettled([
         api<unknown>("/api/notifications"),
         api<unknown>("/api/consistency/status"),
         api<unknown>("/api/coins"),
-        api<unknown>("/api/community/discord"),
       ]);
       if (cancelled) return;
       if (noteRes.status === "fulfilled") setNotices(readNotices(noteRes.value));
       if (consistencyRes.status === "fulfilled") setConsistency(readSummary(consistencyRes.value));
       if (coinRes.status === "fulfilled") setCoins(readSummary(coinRes.value));
-      if (discordRes.status === "fulfilled") setDiscordUrl(readUrl(discordRes.value));
     })();
     return () => {
       cancelled = true;
@@ -239,15 +236,9 @@ export default function SettingsPage() {
         <section className="surface rounded-2xl p-6">
           <h2 className="font-display text-2xl font-semibold text-ink">Community</h2>
           <p className="mt-2 text-sm leading-relaxed text-zinc-400">Doubt-solving and peer discussion live on Discord.</p>
-          {discordUrl ? (
-            <a href={discordUrl} className="mt-4 inline-block text-sm text-axiom" target="_blank" rel="noreferrer">
-              Open Discord
-            </a>
-          ) : (
-            <Link href="/originals/community" className="mt-4 inline-block text-sm text-axiom">
-              Open community
-            </Link>
-          )}
+          <Link href="/coming-soon" className="mt-4 inline-block text-sm text-axiom">
+            Open Discord
+          </Link>
         </section>
         <section className="surface rounded-2xl p-6 md:col-span-2">
           <h2 className="font-display text-2xl font-semibold text-ink">Notifications</h2>
@@ -297,11 +288,4 @@ function readSummary(value: unknown): string | null {
     return `${Number(gold || 0).toLocaleString()} gold · ${Number(silver || 0).toLocaleString()} silver`;
   }
   return null;
-}
-
-function readUrl(value: unknown): string | null {
-  if (!value || typeof value !== "object") return null;
-  const record = value as Record<string, unknown>;
-  const url = record.discord_invite_url || record.url || record.invite_url;
-  return typeof url === "string" ? url : null;
 }

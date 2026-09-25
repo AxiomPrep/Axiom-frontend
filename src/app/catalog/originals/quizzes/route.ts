@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { QUIZ_TIER_OPTIONS } from "@/lib/admin-destinations";
 import { listDeskContents } from "@/lib/desk-contents";
 import { filterDesk } from "@/lib/desk-catalog";
+import { mockNamedQuizzes, mockQuizTiers } from "@/data/mock-originals";
 import { proxyLiveJson } from "@/lib/live-api";
 
 export async function GET(req: Request) {
@@ -41,11 +42,16 @@ export async function GET(req: Request) {
     })),
     ...(live?.named_quizzes || []),
   ];
+  const seeded = mockNamedQuizzes(chapterId);
+  const seededTiers = mockQuizTiers(chapterId);
 
   return NextResponse.json({
     chapter_id: chapterId,
-    tiers,
-    named_quizzes: named,
+    tiers: seededTiers.map((tier) => ({
+      ...tier,
+      available_tests: Math.max(tier.available_tests, tiers.find((row) => row.key === tier.key)?.available_tests || 0),
+    })),
+    named_quizzes: [...named, ...seeded.filter((item) => !named.some((row) => row.id === item.id))],
     community_banner: live?.community_banner || { title: "Join the Axiom Prep Community", href: "/originals/community" },
     desk,
   });

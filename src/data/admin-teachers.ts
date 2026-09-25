@@ -52,15 +52,23 @@ export const SEEDED_TEACHERS: AdminTeacher[] = [
 
 export function mergeFacultyLists(seed: AdminTeacher[], extra: AdminTeacher[] = []) {
   const byName = new Map<string, AdminTeacher>();
-  for (const row of extra) {
+  const put = (row: AdminTeacher, preferId?: boolean) => {
     const key = row.name.trim().toLowerCase();
-    if (key) byName.set(key, row);
-  }
-  for (const row of seed) {
-    const key = row.name.trim().toLowerCase();
+    if (!key) return;
     const current = byName.get(key);
-    byName.set(key, current ? { ...current, ...row, id: row.id } : row);
-  }
+    if (!current) {
+      byName.set(key, row);
+      return;
+    }
+    byName.set(key, {
+      ...current,
+      ...row,
+      id: preferId ? row.id : current.id || row.id,
+      listed: row.listed ?? current.listed,
+    });
+  };
+  for (const row of extra) put(row);
+  for (const row of seed) put(row, true);
   return [...byName.values()];
 }
 

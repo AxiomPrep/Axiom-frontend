@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { findSeededAdmin } from "@/data/admin-seed";
 import type { AdminContent } from "@/lib/admin";
+import { inferToolKind } from "@/lib/catalog";
 import { findDestination, findSlot, isYoutubeUrl } from "@/lib/admin-destinations";
 import {
   findStoredAdminContent,
@@ -85,11 +86,18 @@ function mapLiveRow(row: Record<string, unknown>, adminEmail: string): AdminCont
     file_name: null,
     teacher: meta(description, "teacher"),
     chapter,
-    exam: null,
-    year: null,
-    tier: null,
-    tool_kind: null,
-    quiz_tier: null,
+    exam: meta(description, "exam"),
+    year: meta(description, "year"),
+    tier: meta(description, "tier"),
+    tool_kind:
+      dest === "originals-tools"
+        ? inferToolKind({
+            tool_kind: meta(description, "tool_kind"),
+            title: String(row.title || ""),
+            description,
+          })
+        : meta(description, "tool_kind"),
+    quiz_tier: meta(description, "quiz_tier"),
     extracted_kind: null,
     extracted_summary: null,
     extracted_questions: null,
@@ -260,7 +268,8 @@ export async function POST(req: Request) {
   }
 
   try {
-    const live = await fetch(`${API_ORIGIN}/api/admin/contents`, {
+    headers.set("x-admin-title", field(row, "title") || fileName);
+    const live = await fetch(`${API_ORIGIN}/api/admin/contents?title=${encodeURIComponent(field(row, "title") || fileName)}`, {
       method: "POST",
       headers,
       body,

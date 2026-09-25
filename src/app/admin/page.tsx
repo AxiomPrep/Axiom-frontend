@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   clearAdminSession,
   createAdminContent,
+  createAdminTeacher,
   deleteAdminContent,
   listAdminContents,
   listAdminTeachers,
@@ -33,7 +34,7 @@ import {
   type AdminSourceKind,
 } from "@/lib/admin-destinations";
 import { mergeFacultyLists, SEEDED_TEACHERS, teachersForSubject, type AdminTeacher } from "@/data/admin-teachers";
-import { facultySlug } from "@/lib/faculty-catalog";
+import { facultySlug, teachersFromUploads } from "@/lib/faculty-catalog";
 import { Logo } from "@/components/Logo";
 
 const fieldClass =
@@ -76,6 +77,7 @@ export default function AdminPage() {
   const [published, setPublished] = useState(true);
   const [preview, setPreview] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [addingTeacher, setAddingTeacher] = useState(false);
 
   const chapterChoices = useMemo(() => chaptersFor(subject, classLevel), [subject, classLevel]);
   const teacherChoices = useMemo(() => teachersForSubject(teachers, subject), [teachers, subject]);
@@ -93,12 +95,10 @@ export default function AdminPage() {
         const current = await readAdminSession();
         if (current && "email" in current && current.email) {
           setSession(current as AdminSession);
-          void listAdminContents(current.email)
-            .then((listed) => setContents(listed.contents))
-            .catch(() => setContents([]));
-          void listAdminTeachers()
-            .then((faculty) => setTeachers(mergeFacultyLists(SEEDED_TEACHERS, faculty.teachers)))
-            .catch(() => setTeachers(SEEDED_TEACHERS));
+          const listed = await listAdminContents(current.email).catch(() => ({ contents: [] as AdminContent[] }));
+          setContents(listed.contents);
+          const faculty = await listAdminTeachers().catch(() => ({ teachers: [] as AdminTeacher[] }));
+          setTeachers(mergeFacultyLists(SEEDED_TEACHERS, [...faculty.teachers, ...teachersFromUploads(listed.contents)]));
         }
       } catch {
         setSession(null);
@@ -146,9 +146,8 @@ export default function AdminPage() {
       setSession(next);
       const listed = await listAdminContents(next.email);
       setContents(listed.contents);
-      void listAdminTeachers()
-        .then((faculty) => setTeachers(mergeFacultyLists(SEEDED_TEACHERS, faculty.teachers)))
-        .catch(() => setTeachers(SEEDED_TEACHERS));
+      const faculty = await listAdminTeachers().catch(() => ({ teachers: [] as AdminTeacher[] }));
+      setTeachers(mergeFacultyLists(SEEDED_TEACHERS, [...faculty.teachers, ...teachersFromUploads(listed.contents)]));
     } catch (err) {
       setGateError(err instanceof Error ? err.message : "This email is not seeded for admin access.");
     } finally {
@@ -169,6 +168,30 @@ export default function AdminPage() {
     teacher === "__custom"
       ? customTeacher.trim()
       : teacherChoices.find((item) => item.id === teacher || item.name === teacher)?.name || teacher;
+
+  const rememberTeacher = (name: string, subjectId = subject) => {
+    const row: AdminTeacher = { id: facultySlug(name), name, subject: subjectId, listed: true };
+    setTeachers((current) => mergeFacultyLists(SEEDED_TEACHERS, [...current, row]));
+    setTeacher(row.id);
+    setCustomTeacher("");
+    return row;
+  };
+
+  const addTeacherToList = async () => {
+    const name = customTeacher.trim();
+    if (!name) return;
+    setAddingTeacher(true);
+    setError(null);
+    rememberTeacher(name, subject);
+    try {
+      await createAdminTeacher(name, subject);
+      setNotice(`“${name}” is now in the teachers list.`);
+    } catch {
+      setNotice(`“${name}” is in this list. Publish a lecture so the student site keeps them.`);
+    } finally {
+      setAddingTeacher(false);
+    }
+  };
 
   const publish = async (e: FormEvent) => {
     e.preventDefault();
@@ -195,14 +218,27 @@ export default function AdminPage() {
           teacher: resolvedTeacher,
           teacher_id: teacher === "__custom" ? facultySlug(customTeacher) : teacher,
           module: moduleKey,
+          tool_kind: destination.fields.toolKind ? toolKind : "",
+          exam: destination.fields.exam ? exam : "",
+          year: destination.fields.year ? year : "",
+          tier: destination.fields.tier ? tier : "",
+          quiz_tier: destination.fields.quizTier ? quizTier : "",
           is_published: published ? "true" : "false",
           is_free_preview: preview || Boolean(file) ? "true" : "false",
         },
         session.email,
       );
       setContents((current) => [content, ...current]);
-      const faculty = await listAdminTeachers().catch(() => ({ teachers: SEEDED_TEACHERS }));
-      setTeachers(mergeFacultyLists(SEEDED_TEACHERS, faculty.teachers));
+      if (resolvedTeacher) rememberTeacher(resolvedTeacher, subject);
+      const faculty = await listAdminTeachers().catch(() => ({ teachers: [] as AdminTeacher[] }));
+      setTeachers(
+        mergeFacultyLists(SEEDED_TEACHERS, [
+          ...faculty.teachers,
+          ...teachersFromUploads([content]),
+          ...(resolvedTeacher ? [{ id: facultySlug(resolvedTeacher), name: resolvedTeacher, subject, listed: true }] : []),
+        ]),
+      );
+      if (resolvedTeacher) setTeacher(facultySlug(resolvedTeacher));
       setTitle("");
       setDescription("");
       setYoutubeUrl("");
@@ -392,6 +428,8 @@ export default function AdminPage() {
             setTeacher={setTeacher}
             customTeacher={customTeacher}
             setCustomTeacher={setCustomTeacher}
+            addingTeacher={addingTeacher}
+            onAddTeacher={() => void addTeacherToList()}
             teacherChoices={teacherChoices}
             moduleKey={moduleKey}
             setModuleKey={setModuleKey}
@@ -509,6 +547,9 @@ export default function AdminPage() {
                     {item.subject ? ` · ${item.subject}` : ""}
                     {item.class_level ? ` · Class ${item.class_level}` : ""}
                     {item.chapter ? ` · ${item.chapter}` : ""}
+                    {item.tool_kind
+                      ? ` · ${TOOL_KIND_OPTIONS.find((kind) => kind.id === item.tool_kind)?.label || item.tool_kind}`
+                      : ""}
                     {item.tier ? ` · Tier ${item.tier}` : ""}
                     {item.extracted_kind === "questions"
                       ? ` · ${item.extracted_questions?.length || 0} questions`
@@ -576,6 +617,8 @@ function PlacementFields({
   setTeacher,
   customTeacher,
   setCustomTeacher,
+  addingTeacher,
+  onAddTeacher,
   teacherChoices,
   moduleKey,
   setModuleKey,
@@ -604,6 +647,8 @@ function PlacementFields({
   setTeacher: (value: string) => void;
   customTeacher: string;
   setCustomTeacher: (value: string) => void;
+  addingTeacher: boolean;
+  onAddTeacher: () => void;
   teacherChoices: { id: string; name: string; subject: string }[];
   moduleKey: string;
   setModuleKey: (value: string) => void;
@@ -627,13 +672,29 @@ function PlacementFields({
             <option value="__custom">Add new teacher…</option>
           </select>
           {teacher === "__custom" ? (
-            <input
-              required
-              value={customTeacher}
-              onChange={(e) => setCustomTeacher(e.target.value)}
-              placeholder="Teacher name"
-              className={`${fieldClass} placeholder:text-zinc-500`}
-            />
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+              <input
+                required
+                value={customTeacher}
+                onChange={(e) => setCustomTeacher(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    onAddTeacher();
+                  }
+                }}
+                placeholder="Teacher name"
+                className={`${fieldClass} mt-0 placeholder:text-zinc-500`}
+              />
+              <button
+                type="button"
+                disabled={addingTeacher || customTeacher.trim().length < 2}
+                onClick={onAddTeacher}
+                className="h-11 shrink-0 rounded-xl border border-line px-4 text-sm text-ink disabled:opacity-50"
+              >
+                {addingTeacher ? "Adding…" : "Add to list"}
+              </button>
+            </div>
           ) : null}
         </label>
       ) : null}

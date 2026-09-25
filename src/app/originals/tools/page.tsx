@@ -31,7 +31,7 @@ export default function ToolsPage() {
       <PageHeader
         mark={<OriginalsMark id="tools" size="lg" />}
         title="Important Tools"
-        subtitle="Mindmaps, short notes, formula sheets, laws, reactions, and diagrams."
+        subtitle="Full notes, short notes, PYQs, formula sheets, mindmaps, laws, reactions, and diagrams."
       />
       <ApiStatus error={error} />
       <div className="mb-6 flex flex-wrap gap-2">
