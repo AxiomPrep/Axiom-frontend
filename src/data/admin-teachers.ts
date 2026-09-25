@@ -39,12 +39,36 @@ export const SEEDED_TEACHERS: AdminTeacher[] = [
     bio: "1st-year Mechanical Engineering at NIT Silchar. Mentors JEE students on concepts and problem solving.",
     listed: true,
   },
+  { id: "neha-agrawal", name: "Neha Agrawal", subject: "mathematics", listed: true },
+  { id: "sameer-chincholkar", name: "Sameer Chincholkar", subject: "mathematics", listed: true },
+  { id: "mc-sir", name: "MC Sir", subject: "mathematics", listed: true },
+  { id: "ashish-agrawal", name: "Ashish Agrawal", subject: "mathematics", listed: true },
+  { id: "tarun-khandelwal", name: "Tarun Khandelwal", subject: "mathematics", listed: true },
+  { id: "mohit-tyagi", name: "Mohit Tyagi", subject: "mathematics", listed: true },
   { id: "chemistry-faculty", name: "Chemistry faculty", subject: "chemistry" },
   { id: "maths-faculty", name: "Mathematics faculty", subject: "mathematics" },
   { id: "biology-faculty", name: "Biology faculty", subject: "biology" },
 ];
 
+export function mergeFacultyLists(seed: AdminTeacher[], extra: AdminTeacher[] = []) {
+  const byName = new Map<string, AdminTeacher>();
+  for (const row of extra) {
+    const key = row.name.trim().toLowerCase();
+    if (key) byName.set(key, row);
+  }
+  for (const row of seed) {
+    const key = row.name.trim().toLowerCase();
+    const current = byName.get(key);
+    byName.set(key, current ? { ...current, ...row, id: row.id } : row);
+  }
+  return [...byName.values()];
+}
+
 export function teachersForSubject(teachers: AdminTeacher[], subjectId: string) {
-  const match = teachers.filter((teacher) => teacher.subject === subjectId);
-  return match.length ? match : teachers;
+  return [...teachers].sort((a, b) => {
+    const am = a.subject === subjectId ? 0 : 1;
+    const bm = b.subject === subjectId ? 0 : 1;
+    if (am !== bm) return am - bm;
+    return a.name.localeCompare(b.name);
+  });
 }

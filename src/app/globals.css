@@ -333,8 +333,8 @@ html[data-theme="light"] .ambient-symbol {
   position: relative;
   display: flex;
   width: 100%;
-  max-height: 78vh;
-  min-height: 520px;
+  height: min(78vh, 920px);
+  min-height: 560px;
   overflow: hidden;
   border-radius: 4px 14px 14px 4px;
   background:
@@ -343,9 +343,6 @@ html[data-theme="light"] .ambient-symbol {
   box-shadow:
     0 24px 60px rgba(0, 0, 0, 0.45),
     inset 0 0 0 1px rgba(212, 161, 90, 0.16);
-  transform-origin: left center;
-  transform-style: preserve-3d;
-  transition: transform 0.32s ease;
 }
 
 .book-spread.is-single {
@@ -358,20 +355,11 @@ html[data-theme="light"] .ambient-symbol {
   aspect-ratio: 1.42 / 1;
 }
 
-.book-spread.flip-forward {
-  transform-origin: left center;
-  transform: rotateY(-90deg);
-}
-
-.book-spread.flip-back {
-  transform-origin: right center;
-  transform: rotateY(90deg);
-}
-
 .book-leaf {
   position: relative;
   flex: 1;
   min-width: 0;
+  height: 100%;
   background:
     linear-gradient(90deg, rgba(80, 60, 30, 0.08), transparent 18px),
     #f6f1e8;
@@ -388,6 +376,7 @@ html[data-theme="light"] .ambient-symbol {
 .book-leaf-inner {
   position: relative;
   display: flex;
+  width: 100%;
   height: 100%;
   align-items: center;
   justify-content: center;
@@ -399,7 +388,6 @@ html[data-theme="light"] .ambient-symbol {
   max-width: 100%;
   max-height: 100%;
   background: #fff;
-  box-shadow: 0 0 0 1px rgba(26, 20, 12, 0.06);
 }
 
 .book-html-page {

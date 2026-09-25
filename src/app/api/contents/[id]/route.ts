@@ -8,8 +8,9 @@ type Ctx = { params: Promise<{ id: string }> };
 
 function playUrlFor(externalUrl: string | null, storagePath: string | null, contentId: string) {
   if (externalUrl) return youtubeEmbedUrl(externalUrl) || externalUrl;
-  if (storagePath) return storagePath.startsWith("/admin-api/files/") ? `/catalog/contents/${contentId}/file` : storagePath;
-  return null;
+  if (!storagePath) return null;
+  if (storagePath.startsWith("http://") || storagePath.startsWith("https://")) return storagePath;
+  return `/catalog/contents/${contentId}/file`;
 }
 
 export async function GET(req: Request, ctx: Ctx) {

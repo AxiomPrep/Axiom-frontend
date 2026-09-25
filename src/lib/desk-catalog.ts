@@ -66,6 +66,20 @@ export function deskFileUrl(item: AdminContent) {
 
 export function deskOpenHref(item: AdminContent) {
   if (item.source_kind === "youtube" || item.type === "video") return `/watch/${item.id}`;
+  if (item.extracted_kind === "questions" && item.extracted_questions?.length) {
+    const query = new URLSearchParams();
+    if (item.subject) query.set("subject", item.subject);
+    if (item.chapter) query.set("chapter", item.chapter);
+    query.set("class", item.class_level === "12" || item.class_level === "dropper" ? "12" : "11");
+    if (item.tier) query.set("tier", String(item.tier));
+    if (item.quiz_tier) query.set("quizTier", item.quiz_tier);
+    if (item.exam) query.set("exam", item.exam);
+    query.set("set", item.id);
+    query.set("subjectName", item.subject || "Questions");
+    query.set("chapterName", item.chapter || item.title);
+    query.set("tierName", item.title);
+    return `/practice/player?${query}`;
+  }
   return readerHref({
     source: "content",
     id: item.id,
@@ -77,6 +91,8 @@ export function deskOpenHref(item: AdminContent) {
 export function deskKindLabel(item: AdminContent) {
   if (item.slot_label) return item.slot_label;
   if (item.source_kind === "youtube") return "YouTube";
+  if (item.extracted_kind === "questions") return "Question set";
+  if (item.extracted_kind === "notes") return "Book / notes";
   if (item.source_kind === "excel") return "Excel set";
   if (item.source_kind === "pdf" || item.source_kind === "pdf_link") return "PDF";
   return "Upload";

@@ -59,7 +59,7 @@ export default function QuizzesPage() {
 
   async function startNamed(id: string, title: string) {
     if (id.startsWith("admin_")) {
-      router.push(`/catalog/contents/${id}/file`);
+      router.push(`/practice/player?set=${id}&chapter=${curr?.chapterId || ""}&tierName=${encodeURIComponent(title)}`);
       return;
     }
     setBusy(id);

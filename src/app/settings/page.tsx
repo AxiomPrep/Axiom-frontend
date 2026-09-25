@@ -37,7 +37,6 @@ export default function SettingsPage() {
   const [consistency, setConsistency] = useState<string | null>(null);
   const [coins, setCoins] = useState<string | null>(null);
   const [discordUrl, setDiscordUrl] = useState<string | null>(null);
-  const [mentorship, setMentorship] = useState<string | null>(null);
 
   useEffect(() => onAuthChange(setUser), []);
 
@@ -68,19 +67,17 @@ export default function SettingsPage() {
       } catch {
         /* profile fields stay at the session values */
       }
-      const [noteRes, consistencyRes, coinRes, discordRes, mentorRes] = await Promise.allSettled([
+      const [noteRes, consistencyRes, coinRes, discordRes] = await Promise.allSettled([
         api<unknown>("/api/notifications"),
         api<unknown>("/api/consistency/status"),
         api<unknown>("/api/coins"),
         api<unknown>("/api/community/discord"),
-        api<unknown>("/api/mentorship"),
       ]);
       if (cancelled) return;
       if (noteRes.status === "fulfilled") setNotices(readNotices(noteRes.value));
       if (consistencyRes.status === "fulfilled") setConsistency(readSummary(consistencyRes.value));
       if (coinRes.status === "fulfilled") setCoins(readSummary(coinRes.value));
       if (discordRes.status === "fulfilled") setDiscordUrl(readUrl(discordRes.value));
-      if (mentorRes.status === "fulfilled") setMentorship(readSummary(mentorRes.value));
     })();
     return () => {
       cancelled = true;
@@ -240,16 +237,17 @@ export default function SettingsPage() {
           {coins ? <p className="mt-3 text-sm text-muted">Coins · {coins}</p> : null}
         </section>
         <section className="surface rounded-2xl p-6">
-          <h2 className="font-display text-2xl font-semibold text-ink">Mentorship and community</h2>
-          <p className="mt-2 text-sm leading-relaxed text-zinc-400">{mentorship || "IIT JEE mentorship is Gold or Diamond."}</p>
-          <Link href="/mentorship" className="mt-4 inline-block text-sm text-axiom">
-            Compare mentorship
-          </Link>
+          <h2 className="font-display text-2xl font-semibold text-ink">Community</h2>
+          <p className="mt-2 text-sm leading-relaxed text-zinc-400">Doubt-solving and peer discussion live on Discord.</p>
           {discordUrl ? (
-            <a href={discordUrl} className="mt-2 block text-sm text-axiom" target="_blank" rel="noreferrer">
+            <a href={discordUrl} className="mt-4 inline-block text-sm text-axiom" target="_blank" rel="noreferrer">
               Open Discord
             </a>
-          ) : null}
+          ) : (
+            <Link href="/originals/community" className="mt-4 inline-block text-sm text-axiom">
+              Open community
+            </Link>
+          )}
         </section>
         <section className="surface rounded-2xl p-6 md:col-span-2">
           <h2 className="font-display text-2xl font-semibold text-ink">Notifications</h2>

@@ -24,7 +24,11 @@ type PdfDoc = {
 
 type PdfPage = {
   getViewport: (o: { scale: number }) => { width: number; height: number };
-  render: (o: { canvas: HTMLCanvasElement; viewport: unknown }) => { promise: Promise<void> };
+  render: (o: {
+    canvas?: HTMLCanvasElement;
+    canvasContext?: CanvasRenderingContext2D;
+    viewport: unknown;
+  }) => { promise: Promise<void> };
 };
 
 const COLORS = ["#FDE68A", "#d4a15a", "#86EFAC", "#7DD3FC", "#F9A8D4"];
@@ -78,7 +82,6 @@ export function BookReader({
   const [pdfReady, setPdfReady] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(Boolean(pdfUrl));
   const [spread, setSpread] = useState(false);
-  const [flipping, setFlipping] = useState<"forward" | "back" | null>(null);
   const [tool, setTool] = useState<"highlight" | "draw" | "note" | "erase">("highlight");
   const [color, setColor] = useState(COLORS[0]);
   const [note, setNote] = useState("");
@@ -145,14 +148,9 @@ export function BookReader({
   }, [pdfUrl, pages.length]);
 
   function flip(dir: "forward" | "back") {
-    if (flipping) return;
     const next = dir === "forward" ? leftPage + step : leftPage - step;
     if (next < 1 || next > pageCount) return;
-    setFlipping(dir);
-    window.setTimeout(() => {
-      setPage(next);
-      setFlipping(null);
-    }, 320);
+    setPage(next);
   }
 
   function overlayPoint(e: React.PointerEvent<HTMLCanvasElement>) {
@@ -358,11 +356,7 @@ export function BookReader({
       </div>
 
       <div className="perspective-book">
-        <div
-          className={`book-spread ${flipping === "forward" ? "flip-forward" : flipping === "back" ? "flip-back" : ""} ${
-            flipping === null ? "book-page-enter" : ""
-          } ${spread ? "is-spread" : "is-single"}`}
-        >
+        <div className={`book-spread ${spread ? "is-spread" : "is-single"}`}>
           <button type="button" className="book-edge book-edge-left" aria-label="Previous leaf" onClick={() => flip("back")} />
           <BookLeaf
             pageNumber={leftPage}
@@ -505,34 +499,42 @@ function BookLeaf({
     const canvas = pdfCanvasRef.current;
     const overlay = overlayRef.current;
     if (!frame) return;
-    const box = frame.getBoundingClientRect();
-    const availW = Math.max(1, Math.floor(box.width - 28));
-    const availH = Math.max(1, Math.floor(box.height - 36));
-    const key = `${pageNumber}:${availW}x${availH}:${pdfReady ? "pdf" : "html"}`;
+    const spreadEl = frame.closest(".book-spread") as HTMLElement | null;
+    const availW = Math.floor(frame.clientWidth || spreadEl?.clientWidth || 0);
+    const availH = Math.floor(frame.clientHeight || spreadEl?.clientHeight || 0);
+    if (availW < 120 || availH < 160) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const key = `${pageNumber}:${availW}x${availH}:${pdfReady ? "pdf" : "html"}:${dpr}`;
     if (painted.current === key) return;
     painted.current = key;
     if (pdfReady && pdfDoc && canvas) {
       const pdfPage = await pdfDoc.getPage(pageNumber);
+      if (painted.current !== key) return;
       const base = pdfPage.getViewport({ scale: 1 });
-      const scale = Math.min(availW / base.width, availH / base.height);
-      const dpr = window.devicePixelRatio || 1;
-      const viewport = pdfPage.getViewport({ scale: scale * dpr });
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      canvas.style.width = `${viewport.width / dpr}px`;
-      canvas.style.height = `${viewport.height / dpr}px`;
-      await pdfPage.render({ canvas, viewport }).promise;
+      const fit = Math.min(availW / base.width, availH / base.height);
+      const viewport = pdfPage.getViewport({ scale: fit * dpr });
+      canvas.width = Math.max(1, Math.floor(viewport.width));
+      canvas.height = Math.max(1, Math.floor(viewport.height));
+      canvas.style.width = `${Math.floor(viewport.width / dpr)}px`;
+      canvas.style.height = `${Math.floor(viewport.height / dpr)}px`;
+      const ctx = canvas.getContext("2d", { alpha: false });
+      if (!ctx) return;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await pdfPage.render({ canvasContext: ctx, viewport }).promise;
+      if (painted.current !== key) return;
       if (overlay) {
-        overlay.width = viewport.width;
-        overlay.height = viewport.height;
+        overlay.width = canvas.width;
+        overlay.height = canvas.height;
         overlay.style.width = canvas.style.width;
         overlay.style.height = canvas.style.height;
       }
       return;
     }
     if (overlay) {
-      overlay.width = Math.floor(availW);
-      overlay.height = Math.floor(availH);
+      overlay.width = Math.floor(availW * dpr);
+      overlay.height = Math.floor(availH * dpr);
       overlay.style.width = "100%";
       overlay.style.height = "100%";
     }
@@ -540,12 +542,19 @@ function BookLeaf({
 
   useEffect(() => {
     painted.current = "";
-    void paint();
+    let alive = true;
+    const run = () => {
+      if (alive) void paint();
+    };
+    const id = window.requestAnimationFrame(() => window.requestAnimationFrame(run));
     const frame = frameRef.current;
-    if (!frame) return;
-    const observer = new ResizeObserver(() => void paint());
-    observer.observe(frame);
-    return () => observer.disconnect();
+    const observer = frame ? new ResizeObserver(run) : null;
+    if (frame && observer) observer.observe(frame);
+    return () => {
+      alive = false;
+      window.cancelAnimationFrame(id);
+      observer?.disconnect();
+    };
   }, [paint]);
 
   return (

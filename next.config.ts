@@ -4,10 +4,14 @@ const API_ORIGIN = process.env.API_ORIGIN || "https://axiom-backend-dwlc.onrende
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  serverExternalPackages: ["xlsx"],
   transpilePackages: ["pdfjs-dist"],
   webpack: (config) => {
     config.resolve.alias.canvas = false;
     return config;
+  },
+  async redirects() {
+    return [{ source: "/mentorship", destination: "/", permanent: false }];
   },
   async rewrites() {
     return [

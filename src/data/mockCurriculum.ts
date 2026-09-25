@@ -14,6 +14,8 @@ export interface Question {
   }[]
   correctOption: 'A' | 'B' | 'C' | 'D'
   explanation: string
+  sourcePdf?: string
+  figurePage?: number
   jeeCount?: number
   neetCount?: number
   advCount?: number

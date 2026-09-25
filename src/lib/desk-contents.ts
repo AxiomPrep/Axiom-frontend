@@ -1,5 +1,5 @@
 import { mapLiveContent, type AdminContent } from "@/lib/admin";
-import { listStoredAdminContents } from "@/lib/admin-store";
+import { isHiddenContent, listHiddenAdminIds, listHiddenAdminKeys } from "@/lib/admin-store";
 
 const API_ORIGIN = process.env.API_ORIGIN || "https://axiom-backend-dwlc.onrender.com";
 
@@ -24,11 +24,16 @@ async function listLiveDeskContents(): Promise<AdminContent[]> {
 }
 
 export async function listDeskContents() {
-  const [live, local] = await Promise.all([listLiveDeskContents(), listStoredAdminContents().catch(() => [])]);
-  const byId = new Map<string, AdminContent>();
-  for (const item of local) byId.set(item.id, item);
-  for (const item of live) byId.set(item.live_id || item.id, item);
-  return [...byId.values()];
+  const [live, hiddenIds, hiddenKeys] = await Promise.all([
+    listLiveDeskContents(),
+    listHiddenAdminIds().catch(() => []),
+    listHiddenAdminKeys().catch(() => []),
+  ]);
+  return live.filter((item) => {
+    if (isHiddenContent(item, hiddenIds, hiddenKeys)) return false;
+    if (item.title === "Lec 1: Introduction" || (item.description || "").includes("Sample lecture")) return false;
+    return true;
+  });
 }
 
 export async function findDeskContent(id: string) {

@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   clearAdminSession,
   createAdminContent,
+  deleteAdminContent,
   listAdminContents,
   listAdminTeachers,
   readAdminSession,
@@ -31,12 +32,12 @@ import {
   type AdminDestination,
   type AdminSourceKind,
 } from "@/lib/admin-destinations";
-import { SEEDED_TEACHERS, teachersForSubject, type AdminTeacher } from "@/data/admin-teachers";
+import { mergeFacultyLists, SEEDED_TEACHERS, teachersForSubject, type AdminTeacher } from "@/data/admin-teachers";
 import { facultySlug } from "@/lib/faculty-catalog";
 import { Logo } from "@/components/Logo";
 
 const fieldClass =
-  "mt-2 h-11 w-full rounded-xl border border-line bg-[color:var(--bg)] px-3 text-sm text-ink focus:border-axiom focus:outline-none";
+  "relative z-20 mt-2 h-11 w-full rounded-xl border border-line bg-[color:var(--bg)] px-3 text-sm text-ink focus:border-axiom focus:outline-none";
 
 export default function AdminPage() {
   const [ready, setReady] = useState(false);
@@ -74,6 +75,7 @@ export default function AdminPage() {
   const [quizTier, setQuizTier] = useState("s1");
   const [published, setPublished] = useState(true);
   const [preview, setPreview] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   const chapterChoices = useMemo(() => chaptersFor(subject, classLevel), [subject, classLevel]);
   const teacherChoices = useMemo(() => teachersForSubject(teachers, subject), [teachers, subject]);
@@ -91,11 +93,12 @@ export default function AdminPage() {
         const current = await readAdminSession();
         if (current && "email" in current && current.email) {
           setSession(current as AdminSession);
-          const listed = await listAdminContents(current.email);
-          setContents(listed.contents);
+          void listAdminContents(current.email)
+            .then((listed) => setContents(listed.contents))
+            .catch(() => setContents([]));
           void listAdminTeachers()
-            .then((faculty) => setTeachers(faculty.teachers))
-            .catch(() => setTeachers([]));
+            .then((faculty) => setTeachers(mergeFacultyLists(SEEDED_TEACHERS, faculty.teachers)))
+            .catch(() => setTeachers(SEEDED_TEACHERS));
         }
       } catch {
         setSession(null);
@@ -122,11 +125,10 @@ export default function AdminPage() {
   }, [chapterChoices, chapter]);
 
   useEffect(() => {
-    if (teacher === "__custom") return;
-    if (teacherChoices[0] && !teacherChoices.some((item) => item.id === teacher || item.name === teacher)) {
-      setTeacher(teacherChoices[0].id);
-    }
-  }, [teacherChoices, teacher]);
+    if (destination.id !== "top-teachers" || teacher === "__custom" || !teacher) return;
+    const selected = teachers.find((item) => item.id === teacher || item.name === teacher);
+    if (selected?.subject) setSubject(selected.subject);
+  }, [teacher]);
 
   useEffect(() => {
     if (destination.id !== "top-teachers") return;
@@ -145,8 +147,8 @@ export default function AdminPage() {
       const listed = await listAdminContents(next.email);
       setContents(listed.contents);
       void listAdminTeachers()
-        .then((faculty) => setTeachers(faculty.teachers))
-        .catch(() => setTeachers([]));
+        .then((faculty) => setTeachers(mergeFacultyLists(SEEDED_TEACHERS, faculty.teachers)))
+        .catch(() => setTeachers(SEEDED_TEACHERS));
     } catch (err) {
       setGateError(err instanceof Error ? err.message : "This email is not seeded for admin access.");
     } finally {
@@ -175,8 +177,8 @@ export default function AdminPage() {
     setNotice(null);
     try {
       if (!session?.email) throw new Error("Admin session required.");
-      if (file && !youtubeUrl && !pdfUrl) {
-        throw new Error("On the live site, save a YouTube or PDF link. Files cannot be written to Netlify disk.");
+      if (!youtubeUrl && !pdfUrl && !file) {
+        throw new Error("Add a YouTube or PDF link, or upload a PDF / Excel file.");
       }
       const { content } = await createAdminContent(
         {
@@ -186,6 +188,7 @@ export default function AdminPage() {
           slot_id: slot.id,
           youtube_url: youtubeUrl,
           pdf_url: pdfUrl,
+          file,
           subject,
           class_level: classLevel,
           chapter: resolvedChapter,
@@ -193,25 +196,22 @@ export default function AdminPage() {
           teacher_id: teacher === "__custom" ? facultySlug(customTeacher) : teacher,
           module: moduleKey,
           is_published: published ? "true" : "false",
-          is_free_preview: preview ? "true" : "false",
+          is_free_preview: preview || Boolean(file) ? "true" : "false",
         },
         session.email,
       );
       setContents((current) => [content, ...current]);
-      const faculty = await listAdminTeachers().catch(() => ({ teachers }));
-      setTeachers(faculty.teachers);
+      const faculty = await listAdminTeachers().catch(() => ({ teachers: SEEDED_TEACHERS }));
+      setTeachers(mergeFacultyLists(SEEDED_TEACHERS, faculty.teachers));
       setTitle("");
       setDescription("");
       setYoutubeUrl("");
       setPdfUrl("");
       setFile(null);
-      setNotice(
-        content.extracted_summary
-          ? content.extracted_summary
-          : content.live_id
-            ? `Saved for ${destination.title} and sent to the live catalog.`
-            : `Saved for ${destination.title} on this admin desk.`,
-      );
+      if (!content.live_id) {
+        throw new Error("Render did not save that upload. Nothing was kept on this computer.");
+      }
+      setNotice(content.extracted_summary || `Saved to ${destination.title} on the live student site.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save that upload.");
     } finally {
@@ -219,7 +219,42 @@ export default function AdminPage() {
     }
   };
 
-  const visibleUploads = contents.filter((item) => !item.destination_id || item.destination_id === destination.id);
+  const visibleUploads = contents.filter((item) => {
+    if ((item.description || "").includes("Sample lecture")) return false;
+    if (item.title === "Lec 1: Introduction") return false;
+    return item.destination_id === destination.id;
+  });
+
+  const removeUpload = async (item: AdminContent) => {
+    const label = item.title || "this upload";
+    if (!window.confirm(`Delete “${label}” from history and from the student site?`)) return;
+    setError(null);
+    setNotice(null);
+    setRemovingId(item.id);
+    try {
+      await deleteAdminContent(item.live_id || item.id, {
+        title: item.title,
+        destination_id: item.destination_id,
+        file_name: item.file_name,
+      });
+      const listed = session?.email ? await listAdminContents(session.email).catch(() => null) : null;
+      if (listed) setContents(listed.contents);
+      else {
+        const title = item.title.trim().toLowerCase();
+        setContents((current) =>
+          current.filter((row) => {
+            if (row.id === item.id || row.live_id === item.id || row.live_id === item.live_id) return false;
+            return row.title.trim().toLowerCase() !== title;
+          }),
+        );
+      }
+      setNotice(`Deleted “${label}” from history and the student pages.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete that upload.");
+    } finally {
+      setRemovingId(null);
+    }
+  };
 
   if (!ready) {
     return (
@@ -390,7 +425,7 @@ export default function AdminPage() {
               PDF link
               <input
                 type="url"
-                required={!file && !youtubeUrl && wantsPdfLink && fileSources.filter((kind) => kind !== "pdf").length === 0}
+                required={!file && !youtubeUrl && wantsPdfLink && fileSources.length === 0}
                 value={pdfUrl}
                 onChange={(e) => setPdfUrl(e.target.value)}
                 placeholder="https://…/notes.pdf"
@@ -452,7 +487,7 @@ export default function AdminPage() {
           {notice ? <p className="mt-4 text-sm text-axiom">{notice}</p> : null}
 
           <button type="submit" disabled={saving} className="btn-primary mt-6 h-11 px-5 text-sm disabled:opacity-60">
-            {saving ? "Saving…" : `Save to ${destination.title}`}
+            {saving ? "Saving…" : `Publish to ${destination.title}`}
           </button>
         </form>
 
@@ -492,6 +527,14 @@ export default function AdminPage() {
                       Open file
                     </a>
                   ) : null}
+                  <button
+                    type="button"
+                    disabled={removingId === item.id}
+                    className="mt-2 text-xs text-red-300 hover:underline disabled:opacity-50"
+                    onClick={() => void removeUpload(item)}
+                  >
+                    {removingId === item.id ? "Deleting…" : "Delete from site"}
+                  </button>
                 </li>
               ))}
             </ul>
@@ -578,7 +621,7 @@ function PlacementFields({
           <select value={teacher} onChange={(e) => setTeacher(e.target.value)} required className={fieldClass}>
             {teacherChoices.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.name}
+                {item.name} · {item.subject}
               </option>
             ))}
             <option value="__custom">Add new teacher…</option>

@@ -54,9 +54,6 @@ export function Footer() {
               <Link href="/login" className="block hover:text-ink">
                 Login
               </Link>
-              <Link href="/mentorship" className="block hover:text-ink">
-                Mentorship
-              </Link>
               <Link href="/subscription" className="block hover:text-ink">
                 Subscription
               </Link>

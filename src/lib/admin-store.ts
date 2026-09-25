@@ -47,3 +47,86 @@ export async function saveAdminContent(content: AdminContent) {
   await writeAll(contents);
   return content;
 }
+
+export function contentHideKey(item: {
+  title?: string | null;
+  destination_id?: string | null;
+  file_name?: string | null;
+}) {
+  const title = (item.title || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const dest = (item.destination_id || "").trim().toLowerCase();
+  const file = (item.file_name || "").trim().toLowerCase();
+  return `${dest}|${title}|${file}`;
+}
+
+type HiddenList = { ids: string[]; keys: string[] };
+
+async function readHidden(): Promise<HiddenList> {
+  try {
+    const raw = await readFile(path.join(path.dirname(filePath), "admin-hidden.json"), "utf8");
+    const parsed = JSON.parse(raw) as { ids?: string[]; keys?: string[] };
+    return { ids: Array.isArray(parsed.ids) ? parsed.ids : [], keys: Array.isArray(parsed.keys) ? parsed.keys : [] };
+  } catch {
+    return { ids: [], keys: [] };
+  }
+}
+
+async function writeHidden(hidden: HiddenList) {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(path.join(path.dirname(filePath), "admin-hidden.json"), JSON.stringify(hidden), "utf8");
+}
+
+export async function listHiddenAdminIds() {
+  return (await readHidden()).ids;
+}
+
+export async function listHiddenAdminKeys() {
+  return (await readHidden()).keys;
+}
+
+export function isHiddenContent(
+  item: AdminContent,
+  hiddenIds: string[],
+  hiddenKeys: string[],
+) {
+  if (hiddenIds.includes(item.id) || (item.live_id && hiddenIds.includes(item.live_id))) return true;
+  const title = (item.title || "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (title && hiddenKeys.includes(`*|${title}|`)) return true;
+  const key = contentHideKey(item);
+  if (hiddenKeys.includes(key)) return true;
+  const dest = (item.destination_id || "").trim().toLowerCase();
+  const prefix = `${dest}|${title}|`;
+  return hiddenKeys.some((hidden) => hidden === prefix || hidden.startsWith(prefix));
+}
+
+export async function removeStoredAdminContent(
+  id: string,
+  match?: { title?: string | null; destination_id?: string | null; file_name?: string | null },
+) {
+  const current = await readAll();
+  const target = current.find((item) => item.id === id || item.live_id === id);
+  const key = contentHideKey(match || target || { title: "", destination_id: "", file_name: "" });
+  const next = current.filter((item) => {
+    if (item.id === id || item.live_id === id) return false;
+    if (target && (item.id === target.id || item.live_id === target.id || item.live_id === target.live_id)) return false;
+    if (key.endsWith("||")) return true;
+    return contentHideKey(item) !== key;
+  });
+  await writeAll(next);
+
+  const hidden = await readHidden();
+  const ids = new Set(hidden.ids);
+  ids.add(id);
+  if (target?.id) ids.add(target.id);
+  if (target?.live_id) ids.add(target.live_id);
+  const keys = new Set(hidden.keys);
+  const title = (match?.title || target?.title || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const dest = (match?.destination_id || target?.destination_id || "").trim().toLowerCase();
+  if (title) {
+    keys.add(`*|${title}|`);
+    keys.add(`${dest}|${title}|`);
+  }
+  if (key && !key.endsWith("||")) keys.add(key);
+  await writeHidden({ ids: [...ids], keys: [...keys] });
+  return { ok: true };
+}

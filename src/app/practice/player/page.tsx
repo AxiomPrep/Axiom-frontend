@@ -27,6 +27,7 @@ import {
   answerAttempt,
   submitAttempt,
 } from '@/lib/study-api'
+import { PdfQuestionFigure } from '@/components/PdfQuestionFigure'
 
 type QuestionStatus = 'answered' | 'marked' | 'marked-answered' | 'unanswered' | 'not-visited'
 
@@ -47,6 +48,9 @@ function PlayerContent() {
   const chapterId = searchParams.get('chapter') || ''
   const classLevel = (searchParams.get('class') === '12' ? '12' : '11') as '11' | '12'
   const existingAttempt = searchParams.get('attempt')
+  const setId = searchParams.get('set') || ''
+  const quizTier = searchParams.get('quizTier') || ''
+  const exam = searchParams.get('exam') || ''
   const tierNum = parseInt(searchParams.get('tier') || '1', 10)
   const subjectName = searchParams.get('subjectName') || subjectId || 'Practice'
   const chapterName = searchParams.get('chapterName') || chapterId || 'Chapter'
@@ -59,9 +63,13 @@ function PlayerContent() {
     const query = new URLSearchParams({
       subject: subjectId,
       chapter_id: chapterId,
+      class: classLevel,
       tier: String(tierNum),
     })
-    void api<{ questions?: Array<Record<string, unknown>> }>(`/api/questions?${query}`)
+    if (setId) query.set('set', setId)
+    if (quizTier) query.set('quiz_tier', quizTier)
+    if (exam) query.set('exam', exam)
+    void api<{ questions?: Array<Record<string, unknown>> }>(`/catalog/questions?${query}`)
       .then((data) => {
         const list = Array.isArray(data) ? (data as Array<Record<string, unknown>>) : data.questions || []
         setQuestions(list.map((item, index) => mapApiQuestion(item, index, subjectId, chapterId, tierNum)))
@@ -71,7 +79,7 @@ function PlayerContent() {
         setQuestions([])
         setQuestionError(err instanceof Error ? err.message : 'Could not load questions.')
       })
-  }, [subjectId, chapterId, tierNum])
+  }, [subjectId, chapterId, classLevel, tierNum, setId, quizTier, exam])
 
   const [currentIndex, setCurrentIndex] = useState(0)
   const [attempts, setAttempts] = useState<Record<number, UserAttempt>>({
@@ -401,6 +409,9 @@ function PlayerContent() {
                   <code>{currentQ.formula}</code>
                 </div>
               )}
+              {currentQ.sourcePdf && currentQ.figurePage ? (
+                <PdfQuestionFigure src={currentQ.sourcePdf} page={currentQ.figurePage} />
+              ) : null}
             </div>
 
             {/* Options List */}
@@ -714,6 +725,8 @@ function mapApiQuestion(
     options,
     correctOption: correct === 'B' || correct === 'C' || correct === 'D' ? correct : 'A',
     explanation: String(item.explanation || item.solution || ''),
+    sourcePdf: typeof item.source_pdf === 'string' ? item.source_pdf : undefined,
+    figurePage: Number(item.figure_page ?? item.page) || undefined,
   }
 }
 

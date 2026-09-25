@@ -18,7 +18,6 @@ const LINKS = [
 ];
 
 const MENU: { href: string; label: string; detail?: string }[] = [
-  { href: "/mentorship", label: "Mentorship", detail: "IIT JEE Gold and Diamond" },
   { href: "/subscription", label: "Subscription", detail: "Trial and platform access" },
   { href: "/settings", label: "Settings" },
   { href: "/about", label: "About" },

@@ -54,7 +54,7 @@ export default function SubscriptionPage() {
       <PageHeader
         eyebrow="Subscription"
         title="Your platform access."
-        subtitle="This page shows trial and account access. Paid pricing is only on IIT JEE mentorship."
+        subtitle="This page shows your trial and platform access."
       />
 
       <section className="surface rounded-2xl p-6 sm:p-8">
@@ -87,14 +87,10 @@ export default function SubscriptionPage() {
         )}
       </section>
 
-      <section className="surface mt-6 rounded-2xl p-6 sm:p-8">
-        <p className="font-display text-lg italic text-axiom">IIT JEE mentorship</p>
-        <h2 className="mt-2 font-display text-3xl font-semibold text-ink">Gold and Diamond pricing</h2>
-        <p className="mt-3 max-w-xl text-sm leading-relaxed text-zinc-400">
-          Mentorship is a separate IIT JEE programme. Compare Gold and Diamond, then enroll there.
-        </p>
-        {planError ? <p className="mt-3 text-sm text-red-300">{planError}</p> : null}
-        {plans.length ? (
+      {plans.length ? (
+        <section className="surface mt-6 rounded-2xl p-6 sm:p-8">
+          <p className="font-display text-lg italic text-axiom">Plans</p>
+          {planError ? <p className="mt-3 text-sm text-red-300">{planError}</p> : null}
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             {plans.map((plan) => (
               <article key={plan.id} className="rounded-2xl border border-line bg-white/[0.02] p-4">
@@ -105,11 +101,10 @@ export default function SubscriptionPage() {
               </article>
             ))}
           </div>
-        ) : null}
-        <Link href="/mentorship" className="btn-primary mt-6 inline-flex h-11 items-center px-5 text-sm">
-          Open mentorship
-        </Link>
-      </section>
+        </section>
+      ) : planError ? (
+        <p className="mt-4 text-sm text-red-300">{planError}</p>
+      ) : null}
     </Shell>
   );
 }

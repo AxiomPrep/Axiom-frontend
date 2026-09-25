@@ -9,7 +9,7 @@ import { TrialBar } from "@/components/TrialBar";
 
 export function AppChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  if (pathname.startsWith("/admin")) {
+  if (pathname.startsWith("/admin") || pathname.startsWith("/read") || pathname.startsWith("/reader")) {
     return <div className="flex-1">{children}</div>;
   }
 

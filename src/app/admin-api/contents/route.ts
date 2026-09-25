@@ -2,6 +2,25 @@ import { NextResponse } from "next/server";
 import { findSeededAdmin } from "@/data/admin-seed";
 import type { AdminContent } from "@/lib/admin";
 import { findDestination, findSlot, isYoutubeUrl } from "@/lib/admin-destinations";
+import {
+  findStoredAdminContent,
+  isHiddenContent,
+  listHiddenAdminIds,
+  listHiddenAdminKeys,
+  removeStoredAdminContent,
+} from "@/lib/admin-store";
+
+export const maxDuration = 120;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const FILE_EXTS = new Set(["pdf", "xls", "xlsx", "csv"]);
+
+function safeUploadName(name: string) {
+  const cleaned = (name || "upload.pdf").replace(/[^\w.\- ]+/g, "_").trim() || "upload.pdf";
+  const ext = cleaned.split(".").pop()?.toLowerCase() || "";
+  if (FILE_EXTS.has(ext)) return cleaned;
+  return `${cleaned.replace(/\.[^.]+$/, "") || "upload"}.pdf`;
+}
 
 const API_ORIGIN = process.env.API_ORIGIN || "https://axiom-backend-dwlc.onrender.com";
 
@@ -19,20 +38,24 @@ function requireAdmin(req: Request) {
   return { admin, error: null };
 }
 
-function liveHeaders(req: Request, adminEmail: string) {
+function liveHeaders(req: Request, adminEmail: string, json = true) {
   const headers = new Headers();
   headers.set("x-admin-email", adminEmail);
-  headers.set("Content-Type", "application/json");
+  if (json) headers.set("Content-Type", "application/json");
   const auth = req.headers.get("authorization");
   if (auth) headers.set("authorization", auth);
   return headers;
 }
 
+function meta(description: string | null, key: string) {
+  return description?.match(new RegExp(`${key}:([^\\n]+)`))?.[1]?.trim() || null;
+}
+
 function mapLiveRow(row: Record<string, unknown>, adminEmail: string): AdminContent {
   const description = typeof row.description === "string" ? row.description : null;
-  const dest = description?.match(/destination:([^\n]+)/)?.[1] || null;
-  const subject = description?.match(/subject:([^\n]+)/)?.[1] || null;
-  const chapter = description?.match(/chapter:([^\n]+)/)?.[1] || (typeof row.chapter_id === "string" ? row.chapter_id : null);
+  const dest = meta(description, "destination");
+  const subject = meta(description, "subject");
+  const chapter = meta(description, "chapter") || (typeof row.chapter_id === "string" ? row.chapter_id : null);
   const destination = dest ? findDestination(dest) : findDestination("practice");
   const slot = findSlot(destination, typeof row.module === "string" ? row.module : "");
   const external = typeof row.external_url === "string" ? row.external_url : null;
@@ -44,7 +67,7 @@ function mapLiveRow(row: Record<string, unknown>, adminEmail: string): AdminCont
     description,
     external_url: external,
     storage_path: hasFile ? String(row.storage_path) : null,
-    class_level: typeof row.class_level === "string" ? row.class_level : null,
+    class_level: meta(description, "class_level") || (typeof row.class_level === "string" ? row.class_level : null),
     subject,
     module: typeof row.module === "string" ? row.module : slot.id,
     is_published: row.is_published !== false,
@@ -60,7 +83,7 @@ function mapLiveRow(row: Record<string, unknown>, adminEmail: string): AdminCont
     slot_label: slot.label,
     source_kind: external && /youtube|youtu\.be/i.test(external) ? "youtube" : hasFile ? "pdf" : "pdf_link",
     file_name: null,
-    teacher: description?.match(/teacher:([^\n]+)/)?.[1] || null,
+    teacher: meta(description, "teacher"),
     chapter,
     exam: null,
     year: null,
@@ -86,14 +109,23 @@ export async function GET(req: Request) {
     const payload = (await live.json().catch(() => ({}))) as { contents?: Record<string, unknown>[]; message?: string };
     if (!live.ok) {
       return NextResponse.json(
-        { error: "live_unavailable", message: payload.message || `Live API ${live.status}` },
-        { status: live.status === 401 || live.status === 403 ? live.status : 502 },
+        { error: "live_unavailable", message: payload.message || "Render did not return the upload list." },
+        { status: live.status || 502 },
       );
     }
-    return NextResponse.json({ contents: (payload.contents || []).map((row) => mapLiveRow(row, admin.email)) });
-  } catch (err) {
+    const hiddenIds = await listHiddenAdminIds().catch(() => []);
+    const hiddenKeys = await listHiddenAdminKeys().catch(() => []);
+    const contents = (payload.contents || [])
+      .map((row) => mapLiveRow(row, admin.email))
+      .filter((item) => {
+        if (isHiddenContent(item, hiddenIds, hiddenKeys)) return false;
+        if (item.title === "Lec 1: Introduction" || (item.description || "").includes("Sample lecture")) return false;
+        return true;
+      });
+    return NextResponse.json({ contents });
+  } catch {
     return NextResponse.json(
-      { error: "live_unavailable", message: err instanceof Error ? err.message : "Could not reach the live API." },
+      { error: "live_unavailable", message: "Could not reach Render. Nothing was read from this computer." },
       { status: 502 },
     );
   }
@@ -104,16 +136,42 @@ function field(row: Record<string, unknown>, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function hasUploadFile(row: Record<string, unknown>) {
+  const file = row.file;
+  if (file instanceof File && file.size > 0) return true;
+  return typeof row.file_base64 === "string" && row.file_base64.length > 20;
+}
+
+function mimeForName(name: string) {
+  const ext = name.split(".").pop()?.toLowerCase();
+  if (ext === "pdf") return "application/pdf";
+  if (ext === "xlsx") return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  if (ext === "xls") return "application/vnd.ms-excel";
+  if (ext === "csv") return "text/csv";
+  return "application/octet-stream";
+}
+
+async function fileFromRow(row: Record<string, unknown>) {
+  if (row.file instanceof File && row.file.size > 0) return row.file;
+  if (typeof row.file_base64 === "string" && row.file_base64.length > 20) {
+    const bytes = Buffer.from(row.file_base64, "base64");
+    const name = field(row, "file_name") || "upload.pdf";
+    return new File([bytes], name, { type: mimeForName(name) });
+  }
+  return null;
+}
+
 function livePayloadFromAdminFields(row: Record<string, unknown>) {
   const title = field(row, "title");
   const youtubeUrl = field(row, "youtube_url");
   const pdfUrl = field(row, "pdf_url") || field(row, "external_url");
   const externalUrl = youtubeUrl || pdfUrl;
+  const file = row.file instanceof File && row.file.size > 0 ? row.file : null;
   if (title.length < 2) {
     return { error: "Title is required." };
   }
-  if (!externalUrl) {
-    return { error: "Add a YouTube or PDF link. This route does not store files on Netlify." };
+  if (!externalUrl && !file && !hasUploadFile(row)) {
+    return { error: "Add a YouTube or PDF link, or upload a PDF / Excel file." };
   }
   if (youtubeUrl && !isYoutubeUrl(youtubeUrl)) {
     return { error: "That YouTube link does not look valid." };
@@ -133,7 +191,7 @@ function livePayloadFromAdminFields(row: Record<string, unknown>) {
       type: youtubeUrl ? "video" : "note_pdf",
       title,
       description,
-      external_url: externalUrl,
+      external_url: externalUrl || null,
       destination: field(row, "destination_id"),
       destination_id: field(row, "destination_id"),
       teacher: field(row, "teacher"),
@@ -144,7 +202,9 @@ function livePayloadFromAdminFields(row: Record<string, unknown>) {
       module: field(row, "module") || field(row, "slot_id") || null,
       slot_id: field(row, "slot_id"),
       is_published: field(row, "is_published") !== "false",
-      is_free_preview: field(row, "is_free_preview") === "true",
+      is_free_preview: field(row, "is_free_preview") === "true" || hasUploadFile(row),
+      file_name: field(row, "file_name") || (file instanceof File ? file.name : ""),
+      file_base64: typeof row.file_base64 === "string" ? row.file_base64 : null,
     },
   };
 }
@@ -158,7 +218,7 @@ async function readAdminBody(req: Request): Promise<Record<string, unknown> | nu
   if (!form) return null;
   const row: Record<string, unknown> = {};
   for (const [key, value] of form.entries()) {
-    if (typeof value === "string") row[key] = value;
+    if (typeof value === "string" || value instanceof File) row[key] = value;
   }
   return row;
 }
@@ -180,29 +240,119 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "validation_error", message: mapped.error }, { status: 400 });
   }
 
+  const file = await fileFromRow(row);
+  const fields = { ...(mapped.body as Record<string, unknown>) };
+  const fileName = safeUploadName(field(row, "file_name") || file?.name || "upload.pdf");
+
+  const headers = liveHeaders(req, admin.email, !file);
+  let body: BodyInit;
+  if (file) {
+    const form = new FormData();
+    for (const [key, value] of Object.entries(fields)) {
+      if (value == null || key === "file_base64" || key === "file") continue;
+      form.set(key, typeof value === "string" ? value : String(value));
+    }
+    form.set("file", file, fileName);
+    form.set("file_name", fileName);
+    body = form;
+  } else {
+    body = JSON.stringify(fields);
+  }
+
   try {
     const live = await fetch(`${API_ORIGIN}/api/admin/contents`, {
       method: "POST",
-      headers: liveHeaders(req, admin.email),
-      body: JSON.stringify(mapped.body),
+      headers,
+      body,
       cache: "no-store",
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(120000),
     });
     const payload = (await live.json().catch(() => ({}))) as {
       content?: Record<string, unknown>;
+      file_url?: string | null;
       message?: string;
+      error?: string;
     };
-    if (!live.ok || !payload.content?.id) {
-      return NextResponse.json(
-        { error: "live_save_failed", message: payload.message || `Live API ${live.status}` },
-        { status: live.status >= 400 && live.status < 500 ? live.status : 502 },
-      );
+    if (live.ok && payload.content?.id) {
+      const content = mapLiveRow(payload.content, admin.email);
+      const dest = findDestination(field(row, "destination_id") || field(row, "destination") || content.destination_id || "practice");
+      content.destination_id = dest.id;
+      content.destination_title = dest.title;
+      content.destination_href = dest.href;
+      if (payload.file_url) content.storage_path = payload.file_url;
+      return NextResponse.json({ content }, { status: 201 });
     }
-    return NextResponse.json({ content: mapLiveRow(payload.content, admin.email) }, { status: 201 });
-  } catch (err) {
     return NextResponse.json(
-      { error: "live_unavailable", message: err instanceof Error ? err.message : "Could not reach the live API." },
-      { status: 502 },
+      {
+        error: payload.error || "live_rejected",
+        message:
+          payload.message ||
+          `Render rejected that upload (${live.status}). Nothing was saved on this computer.`,
+      },
+      { status: live.status || 502 },
     );
+  } catch (err) {
+    const message = err instanceof Error && err.name === "TimeoutError"
+      ? "Render timed out. The file was not saved."
+      : "Could not reach Render. The file was not saved.";
+    return NextResponse.json({ error: "live_unavailable", message }, { status: 502 });
   }
+}
+
+export async function DELETE(req: Request) {
+  const { admin, error } = requireAdmin(req);
+  if (error || !admin) return error;
+  const id = new URL(req.url).searchParams.get("id") || "";
+  if (!id) {
+    return NextResponse.json({ error: "id_required", message: "Missing upload id." }, { status: 400 });
+  }
+
+  const stored = await findStoredAdminContent(id).catch(() => null);
+  const liveId = stored?.live_id || (UUID.test(id) ? id : null);
+  const match = {
+    title: new URL(req.url).searchParams.get("title") || stored?.title || "",
+    destination_id: new URL(req.url).searchParams.get("destination") || stored?.destination_id || "",
+    file_name: new URL(req.url).searchParams.get("file") || stored?.file_name || "",
+  };
+  await removeStoredAdminContent(id, match).catch(() => {});
+  if (liveId) await removeStoredAdminContent(liveId, match).catch(() => {});
+
+  const deletedIds = new Set<string>();
+  async function deleteLive(targetId: string) {
+    if (!UUID.test(targetId) || deletedIds.has(targetId)) return false;
+    const res = await fetch(`${API_ORIGIN}/api/admin/contents?id=${encodeURIComponent(targetId)}`, {
+      method: "DELETE",
+      headers: liveHeaders(req, admin.email),
+      cache: "no-store",
+      signal: AbortSignal.timeout(20000),
+    });
+    if (res.ok || res.status === 404) {
+      deletedIds.add(targetId);
+      return true;
+    }
+    return false;
+  }
+
+  if (liveId) await deleteLive(liveId).catch(() => false);
+
+  if (match.title) {
+    try {
+      const listed = await fetch(`${API_ORIGIN}/api/admin/contents`, {
+        headers: liveHeaders(req, admin.email),
+        cache: "no-store",
+        signal: AbortSignal.timeout(15000),
+      });
+      const payload = (await listed.json().catch(() => ({}))) as { contents?: Array<Record<string, unknown>> };
+      const needle = match.title.trim().toLowerCase();
+      for (const row of payload.contents || []) {
+        const title = String(row.title || "").trim().toLowerCase();
+        if (title !== needle || !UUID.test(String(row.id || ""))) continue;
+        await deleteLive(String(row.id)).catch(() => false);
+      }
+    } catch {
+      /* local hide still removes it from this site */
+    }
+  }
+
+  return NextResponse.json({ ok: true, deleted: [...deletedIds] });
 }

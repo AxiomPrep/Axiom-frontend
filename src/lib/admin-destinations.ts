@@ -258,16 +258,16 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
   {
     id: "study-hub-ncert",
     group: "Study Hub",
-    title: "NCERT shelf",
-    href: "/timer",
-    what: "NCERT books on the Study Hub shelf.",
-    where: "Shows under Study Hub → NCERT and opens in /read.",
+    title: "NCERT books",
+    href: "/timer?tab=ncert",
+    what: "Upload the actual NCERT PDF (or a PDF link) for that class and subject.",
+    where: "Shows under Study Hub → NCERT Library and opens in the reader.",
     fields: { subject: true, classLevel: true },
     slots: [
       {
         id: "ncert_book",
         label: "NCERT book",
-        hint: "Upload the NCERT PDF or paste a PDF link.",
+        hint: "Upload the NCERT PDF file here. A PDF link also works if you already have one hosted.",
         sources: ["pdf", "pdf_link"],
       },
     ],
