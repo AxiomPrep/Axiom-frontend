@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   }
 
   const state = randomBytes(16).toString("hex");
-  const redirectUri = googleRedirectUri(request.url);
+  const redirectUri = googleRedirectUri(request);
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,

@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     return fail(request, "google");
   }
 
-  const redirectUri = googleRedirectUri(request.url);
+  const redirectUri = googleRedirectUri(request);
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
