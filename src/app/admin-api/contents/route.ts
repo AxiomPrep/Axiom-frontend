@@ -124,6 +124,7 @@ function livePayloadFromAdminFields(row: Record<string, unknown>) {
     `subject:${field(row, "subject")}`,
     `chapter:${field(row, "chapter")}`,
     field(row, "teacher") ? `teacher:${field(row, "teacher")}` : "",
+    field(row, "teacher_id") ? `teacher_id:${field(row, "teacher_id")}` : "",
   ]
     .filter(Boolean)
     .join("\n");

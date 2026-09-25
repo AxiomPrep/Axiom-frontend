@@ -101,7 +101,12 @@ export function chapterRecord(value: string) {
 function contentBelongsToTeacher(item: AdminContent, teacherId: string) {
   const raw = item.teacher?.trim() || "";
   if (!raw) return false;
-  return raw === teacherId || facultySlug(raw) === teacherId;
+  const faculty = findFacultyTeacher(teacherId);
+  const aliases = [teacherId, faculty?.id, faculty?.name, faculty ? facultySlug(faculty.name) : ""]
+    .filter(Boolean)
+    .map((value) => facultySlug(String(value)));
+  const token = facultySlug(raw);
+  return aliases.includes(token) || raw === teacherId || raw === faculty?.name;
 }
 
 export function teacherUploads(contents: AdminContent[], teacherId: string, classLevel?: string | null) {

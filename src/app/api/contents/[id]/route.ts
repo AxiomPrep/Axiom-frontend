@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { youtubeEmbedUrl } from "@/lib/admin-destinations";
-import { findStoredAdminContent } from "@/lib/admin-store";
+import { findDeskContent } from "@/lib/desk-contents";
 import { chapterRecord } from "@/lib/faculty-catalog";
 import { proxyLiveJson } from "@/lib/live-api";
 
@@ -18,9 +18,13 @@ export async function GET(req: Request, ctx: Ctx) {
     req,
     `/api/contents/${id}`,
   );
-  if (live?.content) return NextResponse.json(live);
-
-  const stored = await findStoredAdminContent(id);
+  const stored = await findDeskContent(id);
+  if (live?.content) {
+    if (!live.play_url && stored) {
+      live.play_url = playUrlFor(stored.external_url, stored.storage_path, stored.id);
+    }
+    return NextResponse.json(live);
+  }
   if (!stored || !stored.is_published) {
     return NextResponse.json({ error: "not_found", message: "Content not found" }, { status: 404 });
   }

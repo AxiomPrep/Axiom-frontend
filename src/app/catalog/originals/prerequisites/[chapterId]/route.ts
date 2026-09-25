@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { chapterRecord } from "@/lib/faculty-catalog";
-import { listStoredAdminContents } from "@/lib/admin-store";
+import { listDeskContents } from "@/lib/desk-contents";
 import { deskOpenHref, filterDesk } from "@/lib/desk-catalog";
 import { proxyLiveJson } from "@/lib/live-api";
 
@@ -14,7 +14,7 @@ export async function GET(req: Request, ctx: Ctx) {
     sequence?: unknown[];
   }>(req, `/api/originals/prerequisites/${chapterId}`);
   const chapter = chapterRecord(chapterId);
-  const desk = filterDesk(await listStoredAdminContents().catch(() => []), {
+  const desk = filterDesk(await listDeskContents(), {
     destination: "prerequisites",
     chapter: chapterId,
   });

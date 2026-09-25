@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listStoredAdminContents } from "@/lib/admin-store";
+import { listDeskContents } from "@/lib/desk-contents";
 import { deskOpenHref, filterDesk } from "@/lib/desk-catalog";
 import { proxyLiveJson } from "@/lib/live-api";
 
@@ -8,7 +8,7 @@ export async function GET(req: Request) {
     req,
     "/api/originals/top-tests",
   );
-  const contents = await listStoredAdminContents().catch(() => []);
+  const contents = await listDeskContents();
   const sets = filterDesk(contents, { destination: "originals-top-tests" }).filter(
     (item) => item.slot_id === "fst_set" || item.source_kind === "excel",
   );

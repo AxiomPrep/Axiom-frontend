@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listStoredAdminContents } from "@/lib/admin-store";
+import { listDeskContents } from "@/lib/desk-contents";
 import {
   listedFacultyTeachers,
   mergeTeacherLists,
@@ -13,7 +13,7 @@ import type { Teacher } from "@/lib/api";
 export async function GET(req: Request) {
   const subject = new URL(req.url).searchParams.get("subject");
   const live = await proxyLiveJson<{ teachers?: Teacher[] }>(req, `/api/teachers${new URL(req.url).search}`);
-  const stored = await listStoredAdminContents().catch(() => []);
+  const stored = await listDeskContents();
   const extra = [
     ...listedFacultyTeachers(),
     ...teachersFromUploads(stored).map(teacherFromFaculty),

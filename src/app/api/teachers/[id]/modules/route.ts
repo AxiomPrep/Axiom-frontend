@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listStoredAdminContents } from "@/lib/admin-store";
+import { listDeskContents } from "@/lib/desk-contents";
 import { findFacultyTeacher, modulesPayload, teacherFromFaculty, teachersFromUploads } from "@/lib/faculty-catalog";
 import { proxyLiveJson } from "@/lib/live-api";
 import type { Teacher } from "@/lib/api";
@@ -9,17 +9,38 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function GET(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   const classLevel = new URL(req.url).searchParams.get("class");
-  const live = await proxyLiveJson<{ teacher?: Teacher }>(
-    req,
-    `/api/teachers/${id}/modules${new URL(req.url).search}`,
-  );
+  const live = await proxyLiveJson<{
+    teacher?: Teacher;
+    popular_content?: unknown[];
+    chapters?: { chapter_id: string; title: string; videos: number; pdfs: number }[];
+    modules?: string[];
+  }>(req, `/api/teachers/${id}/modules${new URL(req.url).search}`);
+
+  const desk = await listDeskContents();
+  const faculty = findFacultyTeacher(id, teachersFromUploads(desk));
+  const deskPayload = faculty ? modulesPayload(teacherFromFaculty(faculty), desk, classLevel) : null;
+
+  if (live?.teacher && deskPayload) {
+    const chapters = new Map<string, { chapter_id: string; title: string; videos: number; pdfs: number }>();
+    for (const chapter of [...(live.chapters || []), ...deskPayload.chapters]) {
+      const current = chapters.get(chapter.chapter_id) || { ...chapter, videos: 0, pdfs: 0 };
+      current.videos += chapter.videos || 0;
+      current.pdfs += chapter.pdfs || 0;
+      current.title = current.title || chapter.title;
+      chapters.set(chapter.chapter_id, current);
+    }
+    const popular = [...deskPayload.popular_content, ...(live.popular_content || [])].filter(
+      (item, index, list) => list.findIndex((row) => row && typeof row === "object" && "id" in row && row.id === (item as { id: string }).id) === index,
+    );
+    return NextResponse.json({
+      ...live,
+      popular_content: popular,
+      chapters: [...chapters.values()],
+      modules: live.modules?.length ? live.modules : deskPayload.modules,
+    });
+  }
+  if (deskPayload) return NextResponse.json(deskPayload);
   if (live?.teacher) return NextResponse.json(live);
 
-  const stored = await listStoredAdminContents().catch(() => []);
-  const faculty = findFacultyTeacher(id, teachersFromUploads(stored));
-  if (!faculty) {
-    return NextResponse.json({ error: "teacher_not_found", message: "Teacher not found" }, { status: 404 });
-  }
-
-  return NextResponse.json(modulesPayload(teacherFromFaculty(faculty), stored, classLevel));
+  return NextResponse.json({ error: "teacher_not_found", message: "Teacher not found" }, { status: 404 });
 }

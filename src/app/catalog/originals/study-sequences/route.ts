@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listStoredAdminContents } from "@/lib/admin-store";
+import { listDeskContents } from "@/lib/desk-contents";
 import { deskOpenHref, filterDesk } from "@/lib/desk-catalog";
 import { proxyLiveJson } from "@/lib/live-api";
 
@@ -8,7 +8,7 @@ export async function GET(req: Request) {
     req,
     "/api/originals/study-sequences",
   );
-  const desk = filterDesk(await listStoredAdminContents().catch(() => []), { destination: "study-sequences" });
+  const desk = filterDesk(await listDeskContents(), { destination: "study-sequences" });
   const extras = desk.map((item) => ({
     id: item.id,
     slug: item.id,

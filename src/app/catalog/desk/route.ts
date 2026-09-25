@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { listStoredAdminContents } from "@/lib/admin-store";
+import { listDeskContents } from "@/lib/desk-contents";
 import { filterDesk } from "@/lib/desk-catalog";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const contents = await listStoredAdminContents().catch(() => []);
+  const contents = await listDeskContents();
   const items = filterDesk(contents, {
     destination: url.searchParams.get("destination"),
     subject: url.searchParams.get("subject"),

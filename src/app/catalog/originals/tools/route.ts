@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { TOOL_KIND_LABELS } from "@/lib/catalog";
-import { listStoredAdminContents } from "@/lib/admin-store";
+import { listDeskContents } from "@/lib/desk-contents";
 import { deskFileUrl, filterDesk } from "@/lib/desk-catalog";
 import { proxyLiveJson } from "@/lib/live-api";
 
@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     req,
     `/api/originals/tools${url.search}`,
   );
-  const desk = filterDesk(await listStoredAdminContents().catch(() => []), {
+  const desk = filterDesk(await listDeskContents(), {
     destination: "originals-tools",
     toolKind: kind,
   });

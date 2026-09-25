@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { QUIZ_TIER_OPTIONS } from "@/lib/admin-destinations";
-import { listStoredAdminContents } from "@/lib/admin-store";
+import { listDeskContents } from "@/lib/desk-contents";
 import { filterDesk } from "@/lib/desk-catalog";
 import { proxyLiveJson } from "@/lib/live-api";
 
@@ -14,7 +14,7 @@ export async function GET(req: Request) {
     community_banner?: { title: string; href: string };
   }>(req, `/api/originals/quizzes${url.search}`);
 
-  const desk = filterDesk(await listStoredAdminContents().catch(() => []), {
+  const desk = filterDesk(await listDeskContents(), {
     destination: "originals-quizzes",
     chapter: chapterId,
     quizTier: url.searchParams.get("quiz_tier"),

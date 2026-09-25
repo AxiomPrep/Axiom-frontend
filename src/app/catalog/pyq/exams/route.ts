@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listStoredAdminContents } from "@/lib/admin-store";
+import { listDeskContents } from "@/lib/desk-contents";
 import { deskFileUrl, deskOpenHref, filterDesk } from "@/lib/desk-catalog";
 import { proxyLiveJson } from "@/lib/live-api";
 
@@ -7,7 +7,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const live = await proxyLiveJson<{ exams?: unknown[] } | unknown[]>(req, `/api/pyq/exams${url.search}`);
   const exams = Array.isArray(live) ? live : live?.exams || [];
-  const desk = filterDesk(await listStoredAdminContents().catch(() => []), {
+  const desk = filterDesk(await listDeskContents(), {
     destination: "pyq-bank",
     subject: url.searchParams.get("subject"),
     classLevel: url.searchParams.get("class"),
@@ -22,7 +22,7 @@ export async function GET(req: Request) {
     year: item.year,
     shift: item.slot_label || item.source_kind,
     duration_minutes: 180,
-    question_count: item.source_kind === "excel" ? 1 : 0,
+    question_count: item.extracted_questions?.length || (item.source_kind === "excel" ? 1 : 0),
     difficulty: "Uploaded",
     subject: item.subject,
     class_level: item.class_level,

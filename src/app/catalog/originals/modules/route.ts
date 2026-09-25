@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listStoredAdminContents } from "@/lib/admin-store";
+import { listDeskContents } from "@/lib/desk-contents";
 import { deskFileUrl, filterDesk, moduleKeyForDesk } from "@/lib/desk-catalog";
 import { toContentItem } from "@/lib/faculty-catalog";
 import { proxyLiveJson } from "@/lib/live-api";
@@ -10,7 +10,7 @@ export async function GET(req: Request) {
     req,
     `/api/originals/modules${url.search}`,
   );
-  const desk = filterDesk(await listStoredAdminContents().catch(() => []), {
+  const desk = filterDesk(await listDeskContents(), {
     destination: "originals-modules",
     subject: url.searchParams.get("subject_id") || url.searchParams.get("subject"),
     classLevel: url.searchParams.get("class"),

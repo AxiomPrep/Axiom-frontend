@@ -32,6 +32,7 @@ import {
   type AdminSourceKind,
 } from "@/lib/admin-destinations";
 import { SEEDED_TEACHERS, teachersForSubject, type AdminTeacher } from "@/data/admin-teachers";
+import { facultySlug } from "@/lib/faculty-catalog";
 import { Logo } from "@/components/Logo";
 
 const fieldClass =
@@ -189,6 +190,7 @@ export default function AdminPage() {
           class_level: classLevel,
           chapter: resolvedChapter,
           teacher: resolvedTeacher,
+          teacher_id: teacher === "__custom" ? facultySlug(customTeacher) : teacher,
           module: moduleKey,
           is_published: published ? "true" : "false",
           is_free_preview: preview ? "true" : "false",

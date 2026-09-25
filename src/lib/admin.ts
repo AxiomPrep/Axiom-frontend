@@ -53,13 +53,13 @@ export type AdminContent = {
 const LIVE_API =
   process.env.NEXT_PUBLIC_API_ORIGIN || process.env.API_ORIGIN || "https://axiom-backend-dwlc.onrender.com";
 
-function mapLiveContent(row: Record<string, unknown>, adminEmail: string): AdminContent {
+export function mapLiveContent(row: Record<string, unknown>, adminEmail = "admin"): AdminContent {
   const description = typeof row.description === "string" ? row.description : null;
-  const dest = description?.match(/destination:([^\n]+)/)?.[1] || null;
-  const subject = description?.match(/subject:([^\n]+)/)?.[1] || null;
-  const chapter =
-    description?.match(/chapter:([^\n]+)/)?.[1] || (typeof row.chapter_id === "string" ? row.chapter_id : null);
-  const teacher = description?.match(/teacher:([^\n]+)/)?.[1] || null;
+  const meta = (key: string) => description?.match(new RegExp(`${key}:([^\\n]+)`))?.[1]?.trim() || null;
+  const dest = meta("destination");
+  const subject = meta("subject") || (typeof row.subject === "string" ? row.subject : null);
+  const chapter = meta("chapter") || (typeof row.chapter_id === "string" ? row.chapter_id : null);
+  const teacher = meta("teacher") || meta("teacher_id") || (typeof row.teacher_id === "string" ? row.teacher_id : null);
   const external = typeof row.external_url === "string" ? row.external_url : null;
   const hasFile = Boolean(row.storage_path);
   return {
@@ -69,9 +69,9 @@ function mapLiveContent(row: Record<string, unknown>, adminEmail: string): Admin
     description,
     external_url: external,
     storage_path: hasFile ? String(row.storage_path) : null,
-    class_level: typeof row.class_level === "string" ? row.class_level : null,
+    class_level: meta("class_level") || (typeof row.class_level === "string" ? row.class_level : null),
     subject,
-    module: typeof row.module === "string" ? row.module : null,
+    module: typeof row.module === "string" ? row.module : meta("module"),
     is_published: row.is_published !== false,
     is_free_preview: row.is_free_preview === true,
     created_at: typeof row.created_at === "string" ? row.created_at : new Date().toISOString(),
@@ -87,11 +87,11 @@ function mapLiveContent(row: Record<string, unknown>, adminEmail: string): Admin
     file_name: null,
     teacher,
     chapter,
-    exam: null,
-    year: null,
-    tier: null,
-    tool_kind: null,
-    quiz_tier: null,
+    exam: meta("exam"),
+    year: meta("year"),
+    tier: meta("tier"),
+    tool_kind: meta("tool_kind"),
+    quiz_tier: meta("quiz_tier"),
     extracted_kind: null,
     extracted_summary: null,
     extracted_questions: null,
@@ -184,7 +184,10 @@ export async function createAdminContent(body: FormData | Record<string, unknown
     `destination:${asField(row, "destination_id")}`,
     `subject:${asField(row, "subject")}`,
     `chapter:${asField(row, "chapter")}`,
+    asField(row, "class_level") ? `class_level:${asField(row, "class_level")}` : "",
+    asField(row, "module") ? `module:${asField(row, "module")}` : "",
     asField(row, "teacher") ? `teacher:${asField(row, "teacher")}` : "",
+    asField(row, "teacher_id") ? `teacher_id:${asField(row, "teacher_id")}` : "",
   ]
     .filter(Boolean)
     .join("\n");
