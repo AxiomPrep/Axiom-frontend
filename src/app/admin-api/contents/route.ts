@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { findSeededAdmin } from "@/data/admin-seed";
 import type { AdminContent } from "@/lib/admin";
-import { findDestination, findSlot } from "@/lib/admin-destinations";
+import { findDestination, findSlot, isYoutubeUrl } from "@/lib/admin-destinations";
 
 const API_ORIGIN = process.env.API_ORIGIN || "https://axiom-backend-dwlc.onrender.com";
 
@@ -99,20 +99,85 @@ export async function GET(req: Request) {
   }
 }
 
+function field(row: Record<string, unknown>, key: string) {
+  const value = row[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function livePayloadFromAdminFields(row: Record<string, unknown>) {
+  const title = field(row, "title");
+  const youtubeUrl = field(row, "youtube_url");
+  const pdfUrl = field(row, "pdf_url") || field(row, "external_url");
+  const externalUrl = youtubeUrl || pdfUrl;
+  if (title.length < 2) {
+    return { error: "Title is required." };
+  }
+  if (!externalUrl) {
+    return { error: "Add a YouTube or PDF link. This route does not store files on Netlify." };
+  }
+  if (youtubeUrl && !isYoutubeUrl(youtubeUrl)) {
+    return { error: "That YouTube link does not look valid." };
+  }
+  const description = [
+    field(row, "description"),
+    `destination:${field(row, "destination_id")}`,
+    `subject:${field(row, "subject")}`,
+    `chapter:${field(row, "chapter")}`,
+    field(row, "teacher") ? `teacher:${field(row, "teacher")}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return {
+    body: {
+      type: youtubeUrl ? "video" : "note_pdf",
+      title,
+      description,
+      external_url: externalUrl,
+      class_level: field(row, "class_level") || null,
+      subject: field(row, "subject") || null,
+      module: field(row, "module") || field(row, "slot_id") || null,
+      is_published: field(row, "is_published") !== "false",
+      is_free_preview: field(row, "is_free_preview") === "true",
+    },
+  };
+}
+
+async function readAdminBody(req: Request): Promise<Record<string, unknown> | null> {
+  const contentType = req.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  }
+  const form = await req.formData().catch(() => null);
+  if (!form) return null;
+  const row: Record<string, unknown> = {};
+  for (const [key, value] of form.entries()) {
+    if (typeof value === "string") row[key] = value;
+  }
+  return row;
+}
+
 export async function POST(req: Request) {
   const { admin, error } = requireAdmin(req);
   if (error || !admin) return error;
 
-  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
-  if (!body) {
-    return NextResponse.json({ error: "validation_error", message: "Send JSON for the live catalog." }, { status: 400 });
+  const row = await readAdminBody(req);
+  if (!row) {
+    return NextResponse.json({ error: "validation_error", message: "Send the admin form or JSON." }, { status: 400 });
+  }
+
+  const mapped =
+    field(row, "external_url") && field(row, "title") && (row.type === "video" || row.type === "note_pdf" || row.type === "original")
+      ? { body: row }
+      : livePayloadFromAdminFields(row);
+  if ("error" in mapped && mapped.error) {
+    return NextResponse.json({ error: "validation_error", message: mapped.error }, { status: 400 });
   }
 
   try {
     const live = await fetch(`${API_ORIGIN}/api/admin/contents`, {
       method: "POST",
       headers: liveHeaders(req, admin.email),
-      body: JSON.stringify(body),
+      body: JSON.stringify(mapped.body),
       cache: "no-store",
       signal: AbortSignal.timeout(30000),
     });
