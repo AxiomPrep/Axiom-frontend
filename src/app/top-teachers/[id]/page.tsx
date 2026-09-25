@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { ChapterSummary, PopularContent, Teacher, teacherInitial, teacherName, teacherSubject } from "@/lib/api";
+import { ChapterSummary, formatSelections, isBioSubject, PopularContent, Teacher, teacherInitial, teacherName, teacherSubject } from "@/lib/api";
 import { findFacultyTeacher, teacherFromFaculty } from "@/lib/faculty-catalog";
 import { useApi } from "@/lib/use-api";
 import { ApiStatus, Breadcrumbs, EmptyState, LoadingBlock, Pill, Shell } from "@/components/ui";
@@ -62,6 +62,9 @@ function TeacherProfileInner() {
             <p className="mt-1.5 text-xs font-semibold tracking-[0.16em] text-axiom">
               {subject} EXPERT
               {teacher.years_experience != null ? `  ·  ${teacher.years_experience}+ YRS EXP` : ""}
+              {teacher.selections_count != null
+                ? `  ·  ${formatSelections(teacher.selections_count)} ${isBioSubject(teacher) ? "NEET" : "IIT/NIT"}` 
+                : ""}
             </p>
             {teacher.bio ? <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400">{teacher.bio}</p> : null}
           </div>

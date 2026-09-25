@@ -44,12 +44,12 @@ function initials(name: string) {
 const TEAM = [
   {
     name: "Dhairya Vyas",
-    role: "Co-founder",
+    role: "Founder and CEO",
     src: "/team/dhairya-vyas.png",
   },
   {
     name: "Tanishq Kansal",
-    role: "CEO",
+    role: "Co-founder and COO",
     src: "/team/tanishq-kansal.png",
   },
   {

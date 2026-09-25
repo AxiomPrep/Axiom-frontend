@@ -1,5 +1,5 @@
 import { CHAPTERS } from "@/data/mockCurriculum";
-import { SEEDED_TEACHERS, type AdminTeacher } from "@/data/admin-teachers";
+import { SEEDED_TEACHERS, USUAL_TEACHER_EXPERIENCE, USUAL_TEACHER_SELECTIONS, type AdminTeacher } from "@/data/admin-teachers";
 import type { AdminContent } from "@/lib/admin";
 import type { ChapterSummary, ContentItem, PopularContent, Teacher } from "@/lib/api";
 import { teacherName } from "@/lib/api";
@@ -28,8 +28,8 @@ export function teacherFromFaculty(row: AdminTeacher): Teacher {
     badge: row.listed ? "Featured" : null,
     is_featured: Boolean(row.listed),
     image_url: null,
-    years_experience: null,
-    selections_count: null,
+    years_experience: row.years_experience ?? USUAL_TEACHER_EXPERIENCE,
+    selections_count: row.selections_count ?? USUAL_TEACHER_SELECTIONS,
     subject_focus: subject,
     full_name: row.name,
   };
@@ -99,12 +99,28 @@ export function mergeTeacherLists(live: Teacher[], extra: Teacher[]) {
     const key = teacherName(teacher).trim().toLowerCase();
     const current = byName.get(key);
     if (current) {
-      byName.set(key, { ...current, ...teacher, id: teacher.id || current.id });
+      byName.set(key, {
+        ...current,
+        ...teacher,
+        id: teacher.id || current.id,
+        years_experience: teacher.years_experience ?? current.years_experience ?? USUAL_TEACHER_EXPERIENCE,
+        selections_count: teacher.selections_count ?? current.selections_count ?? USUAL_TEACHER_SELECTIONS,
+      });
     } else {
-      byName.set(key, teacher);
+      byName.set(key, {
+        ...teacher,
+        years_experience: teacher.years_experience ?? USUAL_TEACHER_EXPERIENCE,
+        selections_count: teacher.selections_count ?? USUAL_TEACHER_SELECTIONS,
+      });
     }
   }
-  return [...byName.values()].sort((a, b) => Number(b.is_featured) - Number(a.is_featured));
+  return [...byName.values()]
+    .map((teacher) => ({
+      ...teacher,
+      years_experience: teacher.years_experience ?? USUAL_TEACHER_EXPERIENCE,
+      selections_count: teacher.selections_count ?? USUAL_TEACHER_SELECTIONS,
+    }))
+    .sort((a, b) => Number(b.is_featured) - Number(a.is_featured));
 }
 
 export function chapterRecord(value: string) {

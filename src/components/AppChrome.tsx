@@ -1,7 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { AuthBarrier } from "@/components/AuthBarrier";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import { SessionTimerBar } from "@/components/SessionTimerBar";
@@ -9,8 +10,14 @@ import { TrialBar } from "@/components/TrialBar";
 
 export function AppChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const gated = (
+    <Suspense fallback={<div className="flex-1">{children}</div>}>
+      <AuthBarrier>{children}</AuthBarrier>
+    </Suspense>
+  );
+
   if (pathname.startsWith("/admin") || pathname.startsWith("/read") || pathname.startsWith("/reader")) {
-    return <div className="flex-1">{children}</div>;
+    return <div className="flex-1">{gated}</div>;
   }
 
   return (
@@ -20,7 +27,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
         <TrialBar />
         <SessionTimerBar />
       </div>
-      <div className="flex-1">{children}</div>
+      <div className="flex-1">{gated}</div>
       <Footer />
     </>
   );

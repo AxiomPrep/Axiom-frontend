@@ -241,6 +241,15 @@ export default function SettingsPage() {
           </Link>
         </section>
         <section className="surface rounded-2xl p-6 md:col-span-2">
+          <h2 className="font-display text-2xl font-semibold text-ink">Mentorship</h2>
+          <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+            IIT JEE Gold and Diamond mentorship, with payment, now lives on the subscription page.
+          </p>
+          <Link href="/subscription" className="mt-4 inline-block text-sm text-axiom">
+            Open subscription
+          </Link>
+        </section>
+        <section className="surface rounded-2xl p-6 md:col-span-2">
           <h2 className="font-display text-2xl font-semibold text-ink">Notifications</h2>
           {notices.length === 0 ? (
             <p className="mt-2 text-sm text-zinc-400">Nothing waiting.</p>

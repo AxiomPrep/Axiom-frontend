@@ -9,8 +9,6 @@ function isProtectedApiPath(path: string) {
   return (
     clean.startsWith("/api/") &&
     !clean.startsWith("/api/auth/") &&
-    !clean.startsWith("/api/teachers") &&
-    !clean.startsWith("/api/contents") &&
     clean !== "/api/plans" &&
     clean !== "/api/signup" &&
     clean !== "/api/signin" &&

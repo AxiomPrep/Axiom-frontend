@@ -536,16 +536,71 @@ export async function createCheckout(planId: string): Promise<CheckoutPayload> {
     orderId: String(nested.order_id || nested.orderId || nested.id || ''),
     amount: Number(nested.amount || nested.amount_paise || 0),
     currency: String(nested.currency || 'INR'),
-    key: String(nested.key || nested.razorpay_key || ''),
+    key: String(nested.key || nested.razorpay_key || nested.key_id || data.key_id || ''),
   }
 }
 
-export async function confirmCheckout(checkoutId: string): Promise<{ ok: boolean }> {
+export async function confirmCheckout(payload: {
+  razorpay_order_id: string
+  razorpay_payment_id: string
+  razorpay_signature: string
+}): Promise<{ ok: boolean }> {
   await api('/api/checkout/confirm', {
     method: 'POST',
-    body: JSON.stringify({ checkout_id: checkoutId, order_id: checkoutId }),
+    body: JSON.stringify(payload),
   })
   return { ok: true }
+}
+
+type RazorpayCtor = new (options: Record<string, unknown>) => { open: () => void }
+
+function loadRazorpay(): Promise<RazorpayCtor> {
+  const existing = (window as Window & { Razorpay?: RazorpayCtor }).Razorpay
+  if (existing) return Promise.resolve(existing)
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.onload = () => {
+      const ctor = (window as Window & { Razorpay?: RazorpayCtor }).Razorpay
+      if (ctor) resolve(ctor)
+      else reject(new Error('Razorpay did not load.'))
+    }
+    script.onerror = () => reject(new Error('Could not load Razorpay.'))
+    document.body.appendChild(script)
+  })
+}
+
+export async function payForPlan(
+  planId: string,
+  options?: { name?: string; email?: string; description?: string },
+): Promise<{ ok: boolean }> {
+  const checkout = await createCheckout(planId)
+  if (!checkout.orderId || !checkout.key) {
+    throw new Error('Payment order was not created. Sign in and try again.')
+  }
+  const Razorpay = await loadRazorpay()
+  return new Promise((resolve, reject) => {
+    const rz = new Razorpay({
+      key: checkout.key,
+      amount: checkout.amount,
+      currency: checkout.currency,
+      order_id: checkout.orderId,
+      name: 'Axiom Prep',
+      description: options?.description || 'Axiom Prep subscription',
+      prefill: { name: options?.name || '', email: options?.email || '' },
+      handler: (response: {
+        razorpay_order_id: string
+        razorpay_payment_id: string
+        razorpay_signature: string
+      }) => {
+        void confirmCheckout(response).then(resolve).catch(reject)
+      },
+      modal: {
+        ondismiss: () => reject(new Error('Payment cancelled.')),
+      },
+    })
+    rz.open()
+  })
 }
 
 /* ------------------------------------------------------------------ *

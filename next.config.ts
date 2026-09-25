@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
     return config;
   },
   async redirects() {
-    return [{ source: "/mentorship", destination: "/", permanent: false }];
+    return [{ source: "/mentorship", destination: "/subscription", permanent: false }];
   },
   async rewrites() {
     return [

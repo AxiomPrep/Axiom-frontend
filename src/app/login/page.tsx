@@ -4,6 +4,8 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { onAuthChange, refreshSession, signInWithEmail, signOut, signUpWithEmail, type AxiomUser } from "@/lib/auth";
+import { safeNextPath } from "@/lib/auth-paths";
+import { getAccessToken, setAccessToken } from "@/lib/session";
 import { PageHeader, Shell } from "@/components/ui";
 import {
   CLASS_LEVELS,
@@ -39,10 +41,21 @@ export default function LoginPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const destination = safeNextPath(params.get("next"));
+    const token = getAccessToken();
+    if (token && params.get("google") !== "ok") {
+      setAccessToken(token);
+      router.replace(destination);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const destination = safeNextPath(params.get("next"));
     if (params.get("google") === "ok") {
       void refreshSession().then((next) => {
         window.history.replaceState({}, "", "/login");
-        if (next) router.push("/practice");
+        if (next) router.push(destination);
         else {
           setErrorMessage(
             "Google confirmed your account, but the Axiom Prep API did not issue a session token. Use email sign-in, or ask the backend to accept Google id_token on /api/auth/google.",
@@ -96,7 +109,7 @@ export default function LoginPage() {
         }
         if (created) {
           setSuccessMessage("Account created. Welcome to Axiom Prep.");
-          setTimeout(() => router.push("/practice"), 900);
+          setTimeout(() => router.push(safeNextPath(new URLSearchParams(window.location.search).get("next"))), 900);
         }
       } else {
         const { user: signedIn, error } = await signInWithEmail(email, password);
@@ -106,7 +119,7 @@ export default function LoginPage() {
         }
         if (signedIn) {
           setSuccessMessage("Signed in. Redirecting…");
-          setTimeout(() => router.push("/practice"), 900);
+          setTimeout(() => router.push(safeNextPath(new URLSearchParams(window.location.search).get("next"))), 900);
         }
       }
     } catch {

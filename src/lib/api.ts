@@ -19,11 +19,7 @@ function isPublicApiPath(path: string) {
     clean === "/api/signup" ||
     clean === "/api/signin" ||
     clean === "/api/login" ||
-    clean === "/api/register" ||
-    clean === "/api/teachers" ||
-    clean.startsWith("/api/teachers/") ||
-    clean === "/api/contents" ||
-    clean.startsWith("/api/contents/")
+    clean === "/api/register"
   );
 }
 

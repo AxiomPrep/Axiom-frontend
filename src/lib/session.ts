@@ -41,6 +41,7 @@ export function setAccessToken(token: string) {
   if (typeof window === "undefined") return;
   if (!isUsableToken(token)) return;
   window.localStorage.setItem(TOKEN_KEY, token);
+  document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)}; path=/; max-age=2592000; samesite=lax`;
 }
 
 export function clearAccessToken() {
