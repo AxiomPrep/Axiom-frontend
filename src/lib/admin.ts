@@ -41,6 +41,7 @@ export type AdminContent = {
   file_name?: string | null;
   teacher?: string | null;
   chapter?: string | null;
+  chapter_id?: string | null;
   exam?: string | null;
   year?: string | null;
   tier?: string | null;
@@ -59,7 +60,15 @@ export function mapLiveContent(row: Record<string, unknown>, adminEmail = "admin
   const meta = (key: string) => description?.match(new RegExp(`${key}:([^\\n]+)`))?.[1]?.trim() || null;
   const dest = meta("destination");
   const subject = meta("subject") || (typeof row.subject === "string" ? row.subject : null);
-  const chapter = meta("chapter") || (typeof row.chapter_id === "string" ? row.chapter_id : null);
+  const namedChapter = meta("chapter") || (typeof row.chapter === "string" ? row.chapter : null);
+  const chapterId = typeof row.chapter_id === "string" ? row.chapter_id : null;
+  const chapter =
+    (namedChapter && !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(namedChapter) && !/^[0-9a-f]{8}$/i.test(namedChapter)
+      ? namedChapter
+      : null) ||
+    (chapterId && !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(chapterId) ? chapterId : null) ||
+    namedChapter ||
+    chapterId;
   const teacher = meta("teacher") || meta("teacher_id") || (typeof row.teacher_id === "string" ? row.teacher_id : null);
   const external = typeof row.external_url === "string" ? row.external_url : null;
   const hasFile = Boolean(row.storage_path);
@@ -94,6 +103,7 @@ export function mapLiveContent(row: Record<string, unknown>, adminEmail = "admin
     file_name: null,
     teacher,
     chapter,
+    chapter_id: chapterId,
     exam: meta("exam"),
     year: meta("year"),
     tier: meta("tier"),

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { ChapterSummary, formatSelections, isBioSubject, PopularContent, Teacher, teacherInitial, teacherName, teacherSubject } from "@/lib/api";
-import { findFacultyTeacher, teacherFromFaculty } from "@/lib/faculty-catalog";
+import { findFacultyTeacher, isOpaqueChapterLabel, teacherFromFaculty } from "@/lib/faculty-catalog";
 import { useApi } from "@/lib/use-api";
 import { ApiStatus, Breadcrumbs, EmptyState, LoadingBlock, Pill, Shell } from "@/components/ui";
 
@@ -119,7 +119,7 @@ function TeacherProfileInner() {
                   href={`/top-teachers/${id}/chapters/${ch.chapter_id}?class=${classLevel}`}
                   className="surface surface-hover flex items-center justify-between rounded-2xl px-5 py-4"
                 >
-                  <p className="font-semibold">{ch.title}</p>
+                  <p className="font-semibold">{isOpaqueChapterLabel(ch.title) ? "Chapter" : ch.title}</p>
                   <p className="text-sm text-zinc-400">
                     {ch.videos} Videos • {ch.pdfs} PDFs
                   </p>

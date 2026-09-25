@@ -21,7 +21,11 @@ function isOpenApiPath(pathname: string) {
 export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
-  if (pathname.startsWith("/api/") || pathname.startsWith("/catalog/")) {
+  if (pathname.startsWith("/catalog/")) {
+    return NextResponse.next();
+  }
+
+  if (pathname.startsWith("/api/")) {
     if (isOpenApiPath(pathname) || hasSession(req) || req.headers.get("authorization")?.startsWith("Bearer ")) {
       return NextResponse.next();
     }

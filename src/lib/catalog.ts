@@ -121,10 +121,52 @@ export const TOOL_KIND_LABELS: Record<string, string> = {
   biology_diagrams: "Biology Diagrams",
 };
 
-export function inferToolKind(opts: { tool_kind?: string | null; title?: string | null; description?: string | null }) {
-  const stored = (opts.tool_kind || "").trim();
+const PRACTICE_TITLES_NOT_IN_ORIGINALS = [
+  "Binomial & Normal Distribution",
+  "Probability & Random Variables",
+  "Differential Equations",
+  "Integration & Definite Integrals",
+  "Differentiation & Its Applications",
+  "Introduction to Limits & Continuity",
+  "Coordinate Geometry & Conic Sections",
+  "Trigonometric Identities & Equations",
+  "Pythagoras' Theorem & Trigonometric Ratios",
+  "Logarithms & Matrices",
+  "Polynomials & Quadratic Equations",
+  "Basic Algebraic Techniques & Indices",
+  "Alcohol Phenols & Ethers",
+  "Coordination Compounds",
+  "D-F Block",
+  "Chemical Kinetics",
+  "Motion in straight line",
+  "Motion in Plane Point",
+  "Unit and dimensions",
+  "Lupac chemistry",
+  "Sequence and series",
+  "Chemical control and integration",
+  "Integration",
+];
+
+function toolText(value?: string | null) {
+  return (value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+export function isHiddenFromOriginalsTools(title?: string | null) {
+  const key = toolText(title);
+  return Boolean(key) && PRACTICE_TITLES_NOT_IN_ORIGINALS.some((name) => toolText(name) === key);
+}
+
+export function inferToolKind(opts: {
+  tool_kind?: string | null;
+  title?: string | null;
+  description?: string | null;
+  storage_path?: string | null;
+  file_name?: string | null;
+}) {
+  const stored = (opts.tool_kind || "").trim().replace(/-/g, "_");
+  if (stored === "mind_map" || stored === "mindmaps") return "mindmap";
   if (stored && TOOL_KIND_LABELS[stored]) return stored;
-  const hay = `${opts.title || ""} ${opts.description || ""}`.toLowerCase();
+  const hay = `${opts.title || ""} ${opts.description || ""} ${opts.file_name || ""} ${opts.storage_path || ""}`.toLowerCase();
   if (/\bpyqs?\b/.test(hay) || hay.includes("previous year")) return "pyq";
   if (hay.includes("full note") || hay.includes("full fledged") || hay.includes("full-fledge")) return "full_notes";
   if (hay.includes("formula")) return "formula_sheet";
@@ -135,5 +177,5 @@ export function inferToolKind(opts: { tool_kind?: string | null; title?: string 
   if (hay.includes("reaction")) return "important_reactions";
   if (hay.includes("diagram")) return "biology_diagrams";
   if (hay.includes("roadmap")) return "roadmap_problems";
-  return stored || "short_notes";
+  return stored;
 }

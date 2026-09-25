@@ -1,19 +1,17 @@
 import type { NextRequest } from "next/server";
 
-function callbackPath(origin: string) {
-  return `${origin.replace(/\/$/, "")}/auth/google/callback`;
-}
-
 function isUniqueDeployHost(host: string) {
   return host.includes("--") && host.endsWith(".netlify.app");
 }
 
-export function googleRedirectUri(request: NextRequest) {
+export function publicSiteOrigin(request: NextRequest) {
   const configured = process.env.GOOGLE_REDIRECT_URI?.trim().replace(/\/$/, "");
   if (configured) {
-    return configured.endsWith("/auth/google/callback")
-      ? configured
-      : callbackPath(configured);
+    try {
+      return new URL(configured).origin;
+    } catch {
+      /* fall through */
+    }
   }
 
   const host = (request.headers.get("x-forwarded-host") || request.headers.get("host") || "")
@@ -25,12 +23,18 @@ export function googleRedirectUri(request: NextRequest) {
 
   if (host && !isUniqueDeployHost(host)) {
     const scheme = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : proto || "https";
-    return callbackPath(`${scheme}://${host}`);
+    return `${scheme}://${host}`;
   }
 
-  const site = (process.env.URL || process.env.NEXT_PUBLIC_SITE_URL || "https://axiomprepedu.netlify.app").replace(
+  return (process.env.URL || process.env.NEXT_PUBLIC_SITE_URL || "https://axiomprepedu.netlify.app").replace(
     /\/$/,
     "",
   );
-  return callbackPath(site);
+}
+
+export function googleRedirectUri(request: NextRequest) {
+  const origin = publicSiteOrigin(request);
+  const configured = process.env.GOOGLE_REDIRECT_URI?.trim().replace(/\/$/, "");
+  if (configured?.includes("/auth/google/callback")) return configured;
+  return `${origin}/auth/google/callback`;
 }

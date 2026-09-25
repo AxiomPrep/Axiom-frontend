@@ -3,7 +3,7 @@
 import { useParams, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { ContentItem, Teacher, teacherName, teacherSubject } from "@/lib/api";
-import { findFacultyTeacher, teacherFromFaculty } from "@/lib/faculty-catalog";
+import { findFacultyTeacher, isOpaqueChapterLabel, teacherFromFaculty } from "@/lib/faculty-catalog";
 import { useApi } from "@/lib/use-api";
 import { ModuleAccordion } from "@/components/ModuleAccordion";
 import { ApiStatus, Breadcrumbs, EmptyState, LoadingBlock, Shell } from "@/components/ui";
@@ -29,8 +29,10 @@ function ChapterModulesInner() {
 
   const fallback = findFacultyTeacher(params.id);
   const teacher = teacherApi.data?.teacher || (fallback ? teacherFromFaculty(fallback) : undefined);
-  const chapterTitle =
-    teacherApi.data?.chapters?.find((c) => c.chapter_id === params.chapterId)?.title || "Chapter";
+  const chapterTitle = (() => {
+    const raw = teacherApi.data?.chapters?.find((c) => c.chapter_id === params.chapterId)?.title || "";
+    return raw && !isOpaqueChapterLabel(raw) ? raw : "Chapter";
+  })();
   const grouped = chapterApi.data?.modules || {};
   const items = chapterApi.data?.items || [];
 

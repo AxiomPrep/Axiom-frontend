@@ -77,7 +77,6 @@ function PracticeContent() {
         );
       })
       .catch((err: unknown) => {
-        setSubjects([]);
         setLoadError(
           err instanceof ApiClientError
             ? err
@@ -100,10 +99,15 @@ function PracticeContent() {
             name: String(chapter.title || chapter.name || "Chapter"),
             highYield: Boolean(chapter.high_yield || chapter.highYield),
             completedCount: num(chapter.completed_count),
-            totalCount: num(chapter.total_count || chapter.question_count),
-            jeeCount: num(chapter.jee_count),
-            neetCount: num(chapter.neet_count),
-            advCount: num(chapter.adv_count),
+            totalCount: num(
+              chapter.total_count ||
+                chapter.question_count ||
+                chapter.question_count_estimate ||
+                chapter.questions,
+            ),
+            jeeCount: num(chapter.jee_count ?? (chapter.exam_counts as { jee_mains?: number } | undefined)?.jee_mains),
+            neetCount: num(chapter.neet_count ?? (chapter.exam_counts as { neet?: number } | undefined)?.neet),
+            advCount: num(chapter.adv_count ?? (chapter.exam_counts as { jee_adv?: number } | undefined)?.jee_adv),
           })),
         );
       })

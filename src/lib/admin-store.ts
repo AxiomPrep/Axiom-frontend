@@ -90,13 +90,13 @@ export function isHiddenContent(
   hiddenKeys: string[],
 ) {
   if (hiddenIds.includes(item.id) || (item.live_id && hiddenIds.includes(item.live_id))) return true;
-  const title = (item.title || "").trim().toLowerCase().replace(/\s+/g, " ");
-  if (title && hiddenKeys.includes(`*|${title}|`)) return true;
   const key = contentHideKey(item);
   if (hiddenKeys.includes(key)) return true;
   const dest = (item.destination_id || "").trim().toLowerCase();
-  const prefix = `${dest}|${title}|`;
-  return hiddenKeys.some((hidden) => hidden === prefix || hidden.startsWith(prefix));
+  const title = (item.title || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const file = (item.file_name || "").trim().toLowerCase();
+  const exact = `${dest}|${title}|${file}`;
+  return hiddenKeys.includes(exact);
 }
 
 export async function removeStoredAdminContent(
@@ -122,10 +122,6 @@ export async function removeStoredAdminContent(
   const keys = new Set(hidden.keys);
   const title = (match?.title || target?.title || "").trim().toLowerCase().replace(/\s+/g, " ");
   const dest = (match?.destination_id || target?.destination_id || "").trim().toLowerCase();
-  if (title) {
-    keys.add(`*|${title}|`);
-    keys.add(`${dest}|${title}|`);
-  }
   if (key && !key.endsWith("||")) keys.add(key);
   await writeHidden({ ids: [...ids], keys: [...keys] });
   return { ok: true };

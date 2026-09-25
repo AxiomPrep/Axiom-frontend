@@ -11,6 +11,19 @@ export class ApiClientError extends Error {
   }
 }
 
+const LIVE_API = process.env.NEXT_PUBLIC_API_ORIGIN || "https://axiom-backend-dwlc.onrender.com";
+
+function isLocalBffPath(path: string) {
+  const clean = path.split("?")[0];
+  return clean.startsWith("/api/teachers") || clean.startsWith("/api/contents");
+}
+
+function apiUrl(path: string) {
+  if (typeof window === "undefined") return path;
+  if (!path.startsWith("/api/") || isLocalBffPath(path)) return path;
+  return `${LIVE_API}${path}`;
+}
+
 function isPublicApiPath(path: string) {
   const clean = path.split("?")[0];
   return (
@@ -36,7 +49,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiClientError(401, "unauthorized", "Authentication required");
   }
 
-  const res = await fetch(path, {
+  const res = await fetch(apiUrl(path), {
     ...init,
     credentials: "include",
     headers,

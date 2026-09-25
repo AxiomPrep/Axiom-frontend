@@ -184,7 +184,7 @@ export const CHAPTERS: Chapter[] = [
   // Physics - Class 11
   {
     id: 'kinematics',
-    name: 'Kinematics & Motion in 2D',
+    name: 'Kinematics',
     subjectId: 'physics',
     classNum: '11',
     jeeCount: 420,
@@ -192,6 +192,18 @@ export const CHAPTERS: Chapter[] = [
     advCount: 180,
     totalCount: 980,
     completedCount: 340,
+    highYield: true,
+  },
+  {
+    id: 'kinematics-2d',
+    name: 'Kinematics & Motion in 2D',
+    subjectId: 'physics',
+    classNum: '11',
+    jeeCount: 360,
+    neetCount: 310,
+    advCount: 150,
+    totalCount: 820,
+    completedCount: 220,
     highYield: true,
   },
   {
@@ -324,6 +336,17 @@ export const CHAPTERS: Chapter[] = [
     totalCount: 1600,
     completedCount: 820,
     highYield: true,
+  },
+  {
+    id: 'communication-system',
+    name: 'Communication System',
+    subjectId: 'physics',
+    classNum: '12',
+    jeeCount: 180,
+    neetCount: 140,
+    advCount: 40,
+    totalCount: 360,
+    completedCount: 80,
   },
 
   // Chemistry - Class 11

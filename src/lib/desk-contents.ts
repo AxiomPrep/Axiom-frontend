@@ -7,11 +7,11 @@ function seedAdminEmail() {
   return (process.env.ADMIN_SEED_EMAILS || "admin@axiomprep.com").split(",")[0].trim().toLowerCase();
 }
 
-async function listLiveDeskContents(): Promise<AdminContent[]> {
+async function fetchMappedContents(path: string, headers: HeadersInit): Promise<AdminContent[]> {
   const email = seedAdminEmail();
   try {
-    const res = await fetch(`${API_ORIGIN}/api/admin/contents`, {
-      headers: { "x-admin-email": email },
+    const res = await fetch(`${API_ORIGIN}${path}`, {
+      headers,
       cache: "no-store",
       signal: AbortSignal.timeout(15000),
     });
@@ -21,6 +21,13 @@ async function listLiveDeskContents(): Promise<AdminContent[]> {
   } catch {
     return [];
   }
+}
+
+async function listLiveDeskContents(): Promise<AdminContent[]> {
+  const email = seedAdminEmail();
+  const admin = await fetchMappedContents("/api/admin/contents", { "x-admin-email": email });
+  if (admin.length) return admin;
+  return fetchMappedContents("/api/contents", { "x-admin-email": email });
 }
 
 export async function listDeskContents() {

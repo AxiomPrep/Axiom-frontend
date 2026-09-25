@@ -35,7 +35,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     const stop = onAuthChange(setUser);
-    void refreshSession();
+    if (new URLSearchParams(window.location.search).get("google") !== "ok") {
+      void refreshSession();
+    }
     return stop;
   }, []);
 

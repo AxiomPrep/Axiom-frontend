@@ -114,8 +114,8 @@ function PlayerContent() {
       .then((attempt) => {
         if (active) setAttemptId(attempt.id)
       })
-      .catch((err: unknown) => {
-        if (active) setQuestionError(err instanceof Error ? err.message : 'Could not create an attempt.')
+      .catch(() => {
+        // Keep loaded questions even if the live attempt record is unavailable.
       })
     return () => {
       active = false

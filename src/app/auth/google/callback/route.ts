@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { googleRedirectUri } from "@/lib/google-oauth";
+import { googleRedirectUri, publicSiteOrigin } from "@/lib/google-oauth";
 
 const EXCHANGE_PATHS = [
   "/api/auth/google",
@@ -32,7 +32,7 @@ async function verifyToken(apiOrigin: string, token: string) {
 }
 
 function fail(request: NextRequest, code: "google" | "google_api") {
-  const response = NextResponse.redirect(new URL(`/login?error=${code}`, request.url));
+  const response = NextResponse.redirect(new URL(`/login?error=${code}`, publicSiteOrigin(request)));
   response.cookies.set("axiom_access_token", "", { path: "/", maxAge: 0 });
   response.cookies.set("axiom_google_user", "", { path: "/", maxAge: 0 });
   response.cookies.set("axiom_google_oauth_state", "", { path: "/", maxAge: 0 });
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
   const googleError = request.nextUrl.searchParams.get("error");
 
   if (googleError === "redirect_uri_mismatch" || !clientId || !clientSecret) {
-    return NextResponse.redirect(new URL("/login?error=google_redirect", request.url));
+    return NextResponse.redirect(new URL("/login?error=google_redirect", publicSiteOrigin(request)));
   }
   if (!code || !state || !stored || state !== stored) {
     return fail(request, "google");
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
   if (!tokenRes.ok) {
     const body = await tokenRes.text();
     return NextResponse.redirect(
-      new URL(body.includes("redirect_uri_mismatch") ? "/login?error=google_redirect" : "/login?error=google", request.url),
+      new URL(body.includes("redirect_uri_mismatch") ? "/login?error=google_redirect" : "/login?error=google", publicSiteOrigin(request)),
     );
   }
 
@@ -128,24 +128,21 @@ export async function GET(request: NextRequest) {
     if (backendToken) break;
   }
 
-  if (!backendToken && tokens.id_token) {
-    backendToken = await verifyToken(apiOrigin, tokens.id_token);
-  }
-
   if (!backendToken) return fail(request, "google_api");
 
-  const response = NextResponse.redirect(new URL("/login?google=ok", request.url));
+  const response = NextResponse.redirect(new URL("/login?google=ok", publicSiteOrigin(request)));
+  const secure = publicSiteOrigin(request).startsWith("https");
   response.cookies.set("axiom_access_token", backendToken, {
     httpOnly: false,
     sameSite: "lax",
-    secure: request.nextUrl.protocol === "https:",
+    secure,
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
   });
   response.cookies.set("axiom_google_user", JSON.stringify(user), {
     httpOnly: false,
     sameSite: "lax",
-    secure: request.nextUrl.protocol === "https:",
+    secure,
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
   });
