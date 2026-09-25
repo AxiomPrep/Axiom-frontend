@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { listDeskContents } from "@/lib/desk-contents";
-import { chapterPayload, findFacultyTeacher, teachersFromUploads } from "@/lib/faculty-catalog";
+import { chapterPayload, resolveCatalogFaculty, teachersFromUploads } from "@/lib/faculty-catalog";
 import { proxyLiveJson } from "@/lib/live-api";
+import { teacherName, type Teacher } from "@/lib/api";
 
 type Ctx = { params: Promise<{ id: string; chapterId: string }> };
 
@@ -12,9 +13,14 @@ export async function GET(req: Request, ctx: Ctx) {
     items?: { id: string }[];
     modules?: Record<string, unknown[]>;
   }>(req, `/api/teachers/${id}/chapters/${chapterId}`);
+  const liveTeacher = await proxyLiveJson<{ teacher?: Teacher }>(req, `/api/teachers/${id}`);
 
   const desk = await listDeskContents();
-  const faculty = findFacultyTeacher(id, teachersFromUploads(desk));
+  const faculty = resolveCatalogFaculty(
+    id,
+    teachersFromUploads(desk),
+    liveTeacher?.teacher ? teacherName(liveTeacher.teacher) : null,
+  );
   const deskChapter = faculty ? chapterPayload(faculty.id, chapterId, desk) : null;
 
   if (live?.teacher_id && deskChapter) {
@@ -25,7 +31,8 @@ export async function GET(req: Request, ctx: Ctx) {
     for (const [key, value] of Object.entries(deskChapter.modules)) {
       const current = Array.isArray(modules[key]) ? modules[key] : [];
       modules[key] = [...value, ...current].filter(
-        (item, index, list) => list.findIndex((row) => (row as { id?: string }).id === (item as { id?: string }).id) === index,
+        (item, index, list) =>
+          list.findIndex((row) => (row as { id?: string }).id === (item as { id?: string }).id) === index,
       );
     }
     return NextResponse.json({ ...live, items, modules });

@@ -55,7 +55,20 @@ export function listedFacultyTeachers() {
 
 export function findFacultyTeacher(id: string, extras: AdminTeacher[] = []) {
   const pool = [...SEEDED_TEACHERS, ...extras];
-  return pool.find((row) => row.id === id || facultySlug(row.name) === id) || null;
+  const slug = facultySlug(id);
+  return (
+    pool.find((row) => row.id === id || facultySlug(row.name) === slug || facultySlug(row.id) === slug) || null
+  );
+}
+
+export function resolveCatalogFaculty(id: string, extras: AdminTeacher[] = [], liveName?: string | null) {
+  return (
+    findFacultyTeacher(id, extras) ||
+    (liveName ? findFacultyTeacher(facultySlug(liveName), extras) : null) ||
+    (liveName
+      ? SEEDED_TEACHERS.find((row) => facultySlug(row.name) === facultySlug(liveName)) || null
+      : null)
+  );
 }
 
 export function teachersFromUploads(contents: AdminContent[]): AdminTeacher[] {
@@ -79,12 +92,18 @@ export function teachersFromUploads(contents: AdminContent[]): AdminTeacher[] {
 
 export function mergeTeacherLists(live: Teacher[], extra: Teacher[]) {
   const byName = new Map<string, Teacher>();
-  for (const teacher of extra) {
-    byName.set(teacherName(teacher).trim().toLowerCase(), teacher);
-  }
   for (const teacher of live) {
     if (isPlaceholderTeacher(teacher)) continue;
     byName.set(teacherName(teacher).trim().toLowerCase(), teacher);
+  }
+  for (const teacher of extra) {
+    const key = teacherName(teacher).trim().toLowerCase();
+    const current = byName.get(key);
+    if (current) {
+      byName.set(key, { ...current, ...teacher, id: teacher.id || current.id });
+    } else {
+      byName.set(key, teacher);
+    }
   }
   return [...byName.values()].sort((a, b) => Number(b.is_featured) - Number(a.is_featured));
 }

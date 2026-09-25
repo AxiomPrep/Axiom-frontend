@@ -78,7 +78,13 @@ export function mapLiveContent(row: Record<string, unknown>, adminEmail = "admin
     created_by: adminEmail,
     live_id: String(row.id),
     live_error: null,
-    destination_id: dest,
+    destination_id:
+      dest ||
+      (["lectures", "problem_solving", "pyqs_solving", "one_shots", "revision", "notes_pdf", "important_pdfs"].includes(
+        String(row.module || ""),
+      )
+        ? "top-teachers"
+        : null),
     destination_title: dest,
     destination_href: dest ? `/${dest}` : null,
     slot_id: typeof row.module === "string" ? row.module : null,
@@ -202,9 +208,15 @@ export async function createAdminContent(body: FormData | Record<string, unknown
       title: asField(row, "title"),
       description,
       external_url: externalUrl,
+      destination: asField(row, "destination_id"),
+      destination_id: asField(row, "destination_id"),
+      teacher: asField(row, "teacher"),
+      teacher_id: asField(row, "teacher_id"),
+      subject: asField(row, "subject"),
+      chapter: asField(row, "chapter"),
       class_level: asField(row, "class_level") || null,
-      subject: asField(row, "subject") || null,
       module: asField(row, "module") || asField(row, "slot_id") || null,
+      slot_id: asField(row, "slot_id"),
       is_published: asField(row, "is_published") !== "false",
       is_free_preview: asField(row, "is_free_preview") === "true",
     }),

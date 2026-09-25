@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { listDeskContents } from "@/lib/desk-contents";
-import { findFacultyTeacher, teacherFromFaculty, teachersFromUploads, teacherUploads } from "@/lib/faculty-catalog";
+import { resolveCatalogFaculty, teacherFromFaculty, teachersFromUploads, teacherUploads } from "@/lib/faculty-catalog";
 import { proxyLiveJson } from "@/lib/live-api";
-import type { Teacher } from "@/lib/api";
+import { teacherName, type Teacher } from "@/lib/api";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -10,7 +10,7 @@ export async function GET(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   const live = await proxyLiveJson<{ teacher?: Teacher; contents?: { id: string }[] }>(req, `/api/teachers/${id}`);
   const desk = await listDeskContents();
-  const faculty = findFacultyTeacher(id, teachersFromUploads(desk));
+  const faculty = resolveCatalogFaculty(id, teachersFromUploads(desk), live?.teacher ? teacherName(live.teacher) : null);
   const deskContents = faculty
     ? teacherUploads(desk, faculty.id).map((item) => ({
         id: item.id,

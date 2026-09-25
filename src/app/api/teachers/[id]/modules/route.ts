@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { listDeskContents } from "@/lib/desk-contents";
-import { findFacultyTeacher, modulesPayload, teacherFromFaculty, teachersFromUploads } from "@/lib/faculty-catalog";
+import { modulesPayload, resolveCatalogFaculty, teacherFromFaculty, teachersFromUploads } from "@/lib/faculty-catalog";
 import { proxyLiveJson } from "@/lib/live-api";
-import type { Teacher } from "@/lib/api";
+import { teacherName, type Teacher } from "@/lib/api";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -17,8 +17,11 @@ export async function GET(req: Request, ctx: Ctx) {
   }>(req, `/api/teachers/${id}/modules${new URL(req.url).search}`);
 
   const desk = await listDeskContents();
-  const faculty = findFacultyTeacher(id, teachersFromUploads(desk));
-  const deskPayload = faculty ? modulesPayload(teacherFromFaculty(faculty), desk, classLevel) : null;
+  const faculty = resolveCatalogFaculty(id, teachersFromUploads(desk), live?.teacher ? teacherName(live.teacher) : null);
+  let deskPayload = faculty ? modulesPayload(teacherFromFaculty(faculty), desk, classLevel) : null;
+  if (faculty && deskPayload && deskPayload.chapters.length === 0 && classLevel) {
+    deskPayload = modulesPayload(teacherFromFaculty(faculty), desk, null);
+  }
 
   if (live?.teacher && deskPayload) {
     const chapters = new Map<string, { chapter_id: string; title: string; videos: number; pdfs: number }>();
