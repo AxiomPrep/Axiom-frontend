@@ -302,6 +302,7 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   const { admin, error } = requireAdmin(req);
   if (error || !admin) return error;
+  const adminEmail = admin.email;
   const id = new URL(req.url).searchParams.get("id") || "";
   if (!id) {
     return NextResponse.json({ error: "id_required", message: "Missing upload id." }, { status: 400 });
@@ -322,7 +323,7 @@ export async function DELETE(req: Request) {
     if (!UUID.test(targetId) || deletedIds.has(targetId)) return false;
     const res = await fetch(`${API_ORIGIN}/api/admin/contents?id=${encodeURIComponent(targetId)}`, {
       method: "DELETE",
-      headers: liveHeaders(req, admin.email),
+      headers: liveHeaders(req, adminEmail),
       cache: "no-store",
       signal: AbortSignal.timeout(20000),
     });
@@ -338,7 +339,7 @@ export async function DELETE(req: Request) {
   if (match.title) {
     try {
       const listed = await fetch(`${API_ORIGIN}/api/admin/contents`, {
-        headers: liveHeaders(req, admin.email),
+        headers: liveHeaders(req, adminEmail),
         cache: "no-store",
         signal: AbortSignal.timeout(15000),
       });
