@@ -18,7 +18,7 @@ const LINKS = [
 ];
 
 const MENU: { href: string; label: string; detail?: string }[] = [
-  { href: "/subscription", label: "Subscription", detail: "Plans, payment, and IIT JEE mentorship" },
+  { href: "/subscription", label: "Mentorship", detail: "IIT-JEE and NEET mentors, enroll and pay" },
   { href: "/settings", label: "Settings" },
   { href: "/about", label: "About" },
   { href: "/originals/community", label: "Community" },

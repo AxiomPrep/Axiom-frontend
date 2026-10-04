@@ -13,6 +13,7 @@ import type { Subject, Chapter, PracticeTier, PYQExamSet, Question } from '@/dat
 export interface Plan {
   id: string
   name: string
+  slug: string
   price: number
   priceLabel: string
   tagline: string
@@ -21,6 +22,21 @@ export interface Plan {
   type: string
   durationDays: number
   mentorship: string
+}
+
+export interface PaymentOrder {
+  id: string
+  planId: string | null
+  batchId: string | null
+  orderId: string
+  paymentId: string | null
+  amountInr: number
+  currency: string
+  status: string
+  label: string
+  planSlug: string | null
+  mentorshipTier: string | null
+  createdAt: string
 }
 
 export interface LeaderboardEntry {
@@ -488,31 +504,62 @@ export async function getMe(): Promise<Me> {
   }
 }
 
+const PLAN_FEATURE_LABELS: Record<string, string> = {
+  pyq: 'PYQ bank',
+  practice: 'Practice questions',
+  premium: 'Premium content',
+  all_content: 'All content unlocked',
+  premium_preview: 'Premium preview',
+}
+
+function planFeatureList(plan: Record<string, unknown>): string[] {
+  const duration = Number(plan.duration_days || 0)
+  const featureRecord = plan.features
+  const fromFlags =
+    featureRecord && typeof featureRecord === 'object' && !Array.isArray(featureRecord)
+      ? Object.entries(featureRecord as Record<string, unknown>)
+          .filter(([, on]) => Boolean(on))
+          .map(([key]) => PLAN_FEATURE_LABELS[key] || key.replace(/_/g, ' '))
+      : []
+  const fromList = Array.isArray(featureRecord) ? featureRecord.map(String) : []
+  const fromBullets = Array.isArray(plan.bullets)
+    ? plan.bullets.map(String).filter((line) => !/^\d+-day trial access$/i.test(line))
+    : []
+  const durationLine = duration ? `${duration}-day access` : ''
+  return [...new Set([durationLine, ...fromFlags, ...fromList, ...fromBullets].filter(Boolean))].slice(0, 6)
+}
+
+export function mapLivePlan(plan: Record<string, unknown>, index = 0): Plan {
+  const fromInr = Number(plan.price_inr)
+  const fromPrice = Number(plan.price)
+  const fromPaise = Number(plan.price_paise)
+  const price = Number.isFinite(fromInr)
+    ? fromInr
+    : Number.isFinite(fromPrice)
+      ? fromPrice
+      : Number.isFinite(fromPaise)
+        ? fromPaise / 100
+        : 0
+  const type = String(plan.type || '')
+  const tagline = typeof plan.tagline === 'string' && plan.tagline.trim() ? plan.tagline : ''
+  return {
+    id: String(plan.id || `plan-${index}`),
+    name: String(plan.name || 'Plan'),
+    slug: String(plan.slug || ''),
+    price,
+    priceLabel: price ? `₹${price.toLocaleString()}` : 'Free',
+    tagline,
+    features: planFeatureList(plan),
+    highlight: index === 1,
+    type,
+    durationDays: Number(plan.duration_days || 0),
+    mentorship: String(plan.mentorship_tier || 'none'),
+  }
+}
+
 export async function getPlans(): Promise<Plan[]> {
-  const data = await api<{ plans?: Array<Record<string, unknown>> }>('/api/plans')
-  return (data.plans || []).map((plan, index) => {
-    const price = Number(plan.price_inr ?? plan.price ?? 0)
-    const featureRecord = plan.features
-    const bullets = Array.isArray(plan.bullets)
-      ? plan.bullets.map(String)
-      : featureRecord && typeof featureRecord === 'object' && !Array.isArray(featureRecord)
-        ? Object.keys(featureRecord)
-        : Array.isArray(featureRecord)
-          ? featureRecord.map(String)
-          : []
-    return {
-      id: String(plan.id),
-      name: String(plan.name || 'Plan'),
-      price,
-      priceLabel: price ? `₹${price.toLocaleString()}` : 'Free',
-      tagline: String(plan.tagline || plan.type || ''),
-      features: bullets,
-      highlight: index === 1,
-      type: String(plan.type || ''),
-      durationDays: Number(plan.duration_days || 0),
-      mentorship: String(plan.mentorship_tier || 'none'),
-    }
-  })
+  const data = await api<{ plans?: Array<Record<string, unknown>> }>('/catalog/plans')
+  return (data.plans || []).map(mapLivePlan)
 }
 
 export interface CheckoutPayload {
@@ -552,6 +599,34 @@ export async function confirmCheckout(payload: {
   return { ok: true }
 }
 
+export async function getPaymentOrders(): Promise<PaymentOrder[]> {
+  try {
+    const data = await api<{
+      orders?: Array<Record<string, unknown>>
+      payment_orders?: Array<Record<string, unknown>>
+      history?: Array<Record<string, unknown>>
+    }>('/api/payment-orders')
+    const rows = data.orders || data.payment_orders || data.history || []
+    return rows.map((row) => ({
+      id: String(row.id || ''),
+      planId: row.plan_id ? String(row.plan_id) : null,
+      batchId: row.batch_id ? String(row.batch_id) : null,
+      orderId: String(row.razorpay_order_id || row.order_id || ''),
+      paymentId: row.razorpay_payment_id ? String(row.razorpay_payment_id) : null,
+      amountInr: Number(row.amount_inr ?? (Number(row.amount_paise || 0) / 100)),
+      currency: String(row.currency || 'INR'),
+      status: String(row.status || 'created'),
+      label: String(row.label || row.plan_name || row.batch_title || 'Axiom Prep'),
+      planSlug: row.plan_slug ? String(row.plan_slug) : null,
+      mentorshipTier: row.mentorship_tier ? String(row.mentorship_tier) : null,
+      createdAt: String(row.created_at || ''),
+    }))
+  } catch {
+    // History is non-blocking for mentorship checkout.
+    return []
+  }
+}
+
 type RazorpayCtor = new (options: Record<string, unknown>) => { open: () => void }
 
 function loadRazorpay(): Promise<RazorpayCtor> {
@@ -586,7 +661,7 @@ export async function payForPlan(
       currency: checkout.currency,
       order_id: checkout.orderId,
       name: 'Axiom Prep',
-      description: options?.description || 'Axiom Prep subscription',
+      description: options?.description || 'Axiom Prep mentorship',
       prefill: { name: options?.name || '', email: options?.email || '' },
       handler: (response: {
         razorpay_order_id: string

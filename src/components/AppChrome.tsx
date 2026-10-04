@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { AuthBarrier } from "@/components/AuthBarrier";
 import { Footer } from "@/components/Footer";
@@ -10,11 +10,7 @@ import { TrialBar } from "@/components/TrialBar";
 
 export function AppChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const gated = (
-    <Suspense fallback={<div className="flex-1">{children}</div>}>
-      <AuthBarrier>{children}</AuthBarrier>
-    </Suspense>
-  );
+  const gated = <AuthBarrier>{children}</AuthBarrier>;
 
   if (pathname.startsWith("/admin") || pathname.startsWith("/read") || pathname.startsWith("/reader")) {
     return <div className="flex-1">{gated}</div>;

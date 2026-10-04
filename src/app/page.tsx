@@ -11,10 +11,6 @@ const DISCOVER = [
     detail: "Physics, Chemistry, Mathematics & Biology from first principles",
   },
   { title: "Product updates from Axiom Prep" },
-  {
-    title: "Behind-the-scenes of building the platform",
-    detail: "Conversations with educators, researchers, and creators",
-  },
   { title: "The future of learning" },
 ];
 

@@ -1,14 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { FormEvent, useEffect, useState } from "react";
+import Script from "next/script";
 import { api } from "@/lib/api";
+import { getCurrentUser, onAuthChange, signInWithEmail, signOut, signUpWithEmail, type AxiomUser } from "@/lib/auth";
 import { getAccessToken } from "@/lib/session";
-import { formatCountdown, readAccountAccess, type AccountAccess } from "@/lib/entitlement";
-import { getPlans, payForPlan, type Plan } from "@/lib/study-api";
+import { readAccountAccess, type AccountAccess } from "@/lib/entitlement";
+import { getPaymentOrders, getPlans, payForPlan, type PaymentOrder, type Plan } from "@/lib/study-api";
 import { PageHeader, Shell } from "@/components/ui";
 
 type Cell = true | string;
+
+const MENTOR_WHATSAPP =
+  "https://chat.whatsapp.com/LhZMr8pKBwPIYoOuZE4Avv?s=cl&p=a&ilr=4&iam=0";
+
+type Mentor = {
+  name: string;
+  role: string;
+  institute: string;
+  highlights: string[];
+  tags: string[];
+  availability?: string;
+};
 
 type MentorshipTier = {
   id: string;
@@ -17,39 +30,30 @@ type MentorshipTier = {
   priceLabel: string;
   was: string;
   save: string;
+  matchKeys: string[];
 };
 
-type CheckoutItem = {
-  id: string;
-  name: string;
-  priceLabel: string;
-  description: string;
+type MentorshipTrack = {
+  id: "jee" | "neet";
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  meetHeading: string;
+  meetSub: string;
+  institutes: string[];
+  weeklyCall: string;
+  mentors: Mentor[];
+  tiers: MentorshipTier[];
+  rows: { feature: string; a: Cell; b: Cell }[];
+  tierLabels: [string, string];
+  note: string;
 };
-
-const TIERS: MentorshipTier[] = [
-  { id: "gold", name: "Gold", price: 399, priceLabel: "₹399", was: "₹799", save: "₹400" },
-  { id: "diamond", name: "Diamond", price: 799, priceLabel: "₹799", was: "₹1,299", save: "₹500" },
-];
-
-const ROWS: { feature: string; gold: Cell; diamond: Cell }[] = [
-  { feature: "WhatsApp group with mentors", gold: true, diamond: true },
-  { feature: "Guidance-related doubt solving", gold: true, diamond: true },
-  { feature: "Daily targets & updates", gold: true, diamond: true },
-  { feature: "Group size", gold: "25–30", diamond: "25–30" },
-  { feature: "Weekly group meet call", gold: "~45 min", diamond: "~45 min" },
-  { feature: "Strategy, planning & consistency coaching", gold: true, diamond: true },
-  { feature: "1-to-1 mentor calls (5 min each)", gold: "—", diamond: "2 calls" },
-  { feature: "Exclusive question banks (per subject)", gold: "—", diamond: true },
-  { feature: "Academic doubt solving by educators", gold: "—", diamond: true },
-  { feature: "Live doubt sessions + recordings", gold: "—", diamond: true },
-  { feature: "30-min crisp lectures on most-doubted concepts", gold: "—", diamond: true },
-];
 
 const HOW_IT_WORKS = [
   {
     step: "01",
     title: "Join your mentor group",
-    body: "Get added to a WhatsApp group with IIT, BITS and ISI mentors and 25–30 aspirants.",
+    body: "Get added to a WhatsApp group with your mentors and 25–30 aspirants.",
   },
   {
     step: "02",
@@ -59,7 +63,7 @@ const HOW_IT_WORKS = [
   {
     step: "03",
     title: "Meet every week",
-    body: "A weekly group call of about 45 minutes for guidance, doubts, and strategy.",
+    body: "A weekly group call for guidance, doubts, and strategy.",
   },
   {
     step: "04",
@@ -77,48 +81,254 @@ const GUIDE_ON = [
   { title: "Right direction", body: "Mentors point out what is going wrong and correct your course." },
 ];
 
-function isMentorshipPlan(plan: Plan) {
-  const hay = `${plan.id} ${plan.name} ${plan.type} ${plan.mentorship}`.toLowerCase();
-  return hay.includes("mentor") || hay.includes("gold") || hay.includes("diamond") || plan.mentorship === "a" || plan.mentorship === "b";
-}
+const TRACKS: MentorshipTrack[] = [
+  {
+    id: "jee",
+    eyebrow: "IIT-JEE · Mentorship",
+    title: "Personal guidance from student mentors of IIT, BITS and ISI.",
+    subtitle:
+      "The Axiom Prep IIT-JEE Mentorship puts you in a group of 25–30 aspirants with daily direction on strategy, planning, and consistency.",
+    meetHeading: "Meet your IIT-JEE Mentors",
+    meetSub: "Students of IIT Delhi · IIT Bombay · IIT Guwahati · ISI Kolkata · BITS Pilani · NIT Trichy",
+    institutes: ["IIT Delhi", "IIT Bombay", "IIT Guwahati", "BITS Pilani", "ISI Kolkata", "NIT Trichy"],
+    weeklyCall: "~45 min",
+    mentors: [
+      {
+        name: "Lakshay Garg",
+        role: "B.Tech Candidate, IIT Delhi",
+        institute: "IIT Delhi",
+        highlights: [
+          "AIR 642 in JEE Mains 2025 — 99.964 percentile among 1.5 million candidates",
+          "AIR 2499 in JEE Advanced 2025, placing in the top 1% nationally",
+          "IOQM (Stage 1) qualifier; also wrote RMO",
+          "WorldQuant BRAIN Gold Certification in quantitative finance",
+        ],
+        tags: ["Calculus", "Linear Algebra", "Python", "Speed Math"],
+      },
+      {
+        name: "Kaushik Tiwari",
+        role: "MSc Mathematics, IIT Bombay",
+        institute: "IIT Bombay",
+        highlights: [
+          "AIR 88 in IIT-JAM 2025 — top 0.73% of 12,000+ candidates nationwide",
+          "Mathematics teacher at CV Raman International School (Classes 9–12) for 4 years",
+          "Doubt solver on Filo for Class 9–12 and JEE Maths",
+          "3+ years of one-on-one home tutoring experience",
+        ],
+        tags: ["Mathematics", "Doubt Solving", "Board + JEE"],
+      },
+      {
+        name: "Aryan Sureshkumar Prajapati",
+        role: "B.Tech Mechanical Engineering, IIT Guwahati",
+        institute: "IIT Guwahati",
+        highlights: [
+          "Academic Mentor at JEE Elevate — study planning, time management and structured problem-solving",
+          "Built Meffule, a student productivity platform used by 120+ students",
+          "Marketing Team Manager, Udgam E-Cell, IIT Guwahati",
+        ],
+        tags: ["Study Planning", "Time Management", "Mentorship"],
+      },
+      {
+        name: "Vanshu Sharma",
+        role: "B.Tech Mechanical Engineering, NIT Trichy",
+        institute: "NIT Trichy",
+        highlights: [
+          "JEE Mains 2025: 99.27 percentile (CRL 11,198); JEE Advanced 2025: Qualified",
+          "Finalist, Jitheshraj Scholarship for Promising Freshmen — top 9 of 400+ applicants",
+          "Academic tutor at Filo for JEE-level Maths, Physics & Chemistry",
+          "YouTube creator on academic guidance — 300K+ views",
+        ],
+        tags: ["Mathematics", "Physics", "Chemistry", "Content Creation"],
+      },
+      {
+        name: "Himnish Taneja",
+        role: "MSc Economics + BE Civil Engineering, BITS Pilani",
+        institute: "BITS Pilani",
+        highlights: [
+          "Subject Matter Expert (Maths & Chemistry) at Khan Academy",
+          "Founder of Chem Unbox — JEE Maths & Chemistry community with 16,000+ active learners",
+          "1-on-1 mentor at Being IITian — improved student accuracy by 20% across mock cycles",
+          "Unnati Head (Mentorship), NSS BITS Pilani",
+        ],
+        tags: ["Mathematics", "Chemistry", "1-on-1 Mentorship"],
+      },
+      {
+        name: "Lokanath Panda",
+        role: "Final-year B.Stat, Indian Statistical Institute Kolkata",
+        institute: "ISI Kolkata",
+        highlights: [
+          "AIR 54 in the ISI Kolkata entrance examination",
+          "AIR 1091 in JEE Main 2024",
+          "Regular peer teaching and academic mentoring in Mathematics and Physics",
+          "One-to-one personal tuition adapted to each student's pace",
+        ],
+        tags: ["Mathematics", "Physics", "Rigorous Reasoning"],
+      },
+    ],
+    tiers: [
+      {
+        id: "jee-gold",
+        name: "Gold",
+        price: 399,
+        priceLabel: "₹399",
+        was: "₹799",
+        save: "₹400",
+        matchKeys: ["jee-mentorship-gold", "mentorship-a", "jee mentorship gold"],
+      },
+      {
+        id: "jee-diamond",
+        name: "Diamond",
+        price: 799,
+        priceLabel: "₹799",
+        was: "₹1,299",
+        save: "₹500",
+        matchKeys: ["jee-mentorship-diamond", "mentorship-b", "jee mentorship diamond"],
+      },
+    ],
+    tierLabels: ["Gold", "Diamond"],
+    rows: [
+      { feature: "WhatsApp group with mentors", a: true, b: true },
+      { feature: "Guidance-related doubt solving", a: true, b: true },
+      { feature: "Daily targets & updates", a: true, b: true },
+      { feature: "Group size", a: "25–30", b: "25–30" },
+      { feature: "Weekly group meet call", a: "~45 min", b: "~45 min" },
+      { feature: "Strategy, planning & consistency coaching", a: true, b: true },
+      { feature: "1-to-1 mentor calls (5 min each)", a: "—", b: "2 calls" },
+      { feature: "Exclusive question banks (per subject)", a: "—", b: true },
+      { feature: "Academic doubt solving by educators", a: "—", b: true },
+      { feature: "Live doubt sessions + recordings", a: "—", b: true },
+      { feature: "30-min crisp lectures on most-doubted concepts", a: "—", b: true },
+    ],
+    note:
+      "Diamond students get academic doubts solved by educators with an MSc and PhD, from IIT Bombay, ISI Kolkata, BITS Pilani, and NIT Trichy.",
+  },
+  {
+    id: "neet",
+    eyebrow: "NEET · Brilliancy Mentors",
+    title: "Personal guidance from NEET rankers — AIR 152 · AIR 166 · AIR 513.",
+    subtitle:
+      "Brilliancy Mentors puts you in a small group guided by mentors who cracked NEET, with daily direction on strategy, planning, and consistency.",
+    meetHeading: "Meet your NEET Mentors",
+    meetSub: "Guidance from those who have already cracked NEET",
+    institutes: ["Seth GS Medical College", "JIPMER Puducherry", "AIIMS Bhopal"],
+    weeklyCall: "~1 hour",
+    mentors: [
+      {
+        name: "Bhavya Kothari",
+        role: "NEET 2025 · AIR 152 · MBBS, Seth GS Medical College, Mumbai",
+        institute: "Seth GS Medical College",
+        availability: "Available on Gold & Platinum",
+        highlights: [
+          "JEE Mains: 99 percentile · CBSE Class XII: 97% · Class X: 97.8%",
+          "Ranked under 10 globally in SOF Math & Science Olympiads (Grade 10)",
+          "AIR 160 in ANTHE 2023 and AIR 101 in Tallentex 2023",
+        ],
+        tags: ["NEET Strategy", "Consistency", "Mentorship"],
+      },
+      {
+        name: "Shayan Abdur Raheem",
+        role: "NEET-UG 2025 · AIR 166 · MBBS, JIPMER Puducherry",
+        institute: "JIPMER Puducherry",
+        availability: "Available on Gold & Platinum",
+        highlights: [
+          "635 marks in NEET-UG 2025 · JEE Main: 99.14 percentile · CBSE XII: 97.2%",
+          "Co-Founder & Mentor, Project Helicase — a student-led NEET mentorship initiative",
+          "Class Representative, JIPMER · coordinates batch-level academic matters",
+        ],
+        tags: ["NEET Mentorship", "Planning", "Peer Leadership"],
+      },
+      {
+        name: "Daivik Ambati",
+        role: "NEET 2025 · AIR 513 · MBBS, AIIMS Bhopal",
+        institute: "AIIMS Bhopal",
+        availability: "Available on Gold only",
+        highlights: [
+          "3rd overall in batch, First Professional MBBS exams at AIIMS Bhopal",
+          "JEE 2025: 99.44 percentile overall, 99.99 percentile in Physics",
+          "Principal Investigator on a funded research project at AIIMS Bhopal",
+          "Programmes Head, Mission Brain (NGO) · prior mentor on UnchaAi",
+        ],
+        tags: ["Physics", "Research", "Mentorship"],
+      },
+    ],
+    tiers: [
+      {
+        id: "neet-gold",
+        name: "Gold",
+        price: 399,
+        priceLabel: "₹399",
+        was: "₹1,299",
+        save: "₹900",
+        matchKeys: ["neet-mentorship-gold", "neet mentorship gold", "brilliancy gold"],
+      },
+      {
+        id: "neet-platinum",
+        name: "Platinum",
+        price: 849,
+        priceLabel: "₹849",
+        was: "₹1,999",
+        save: "₹1,150",
+        matchKeys: ["neet-mentorship-platinum", "neet mentorship platinum", "brilliancy platinum"],
+      },
+    ],
+    tierLabels: ["Gold", "Platinum"],
+    rows: [
+      { feature: "WhatsApp group with mentors", a: true, b: true },
+      { feature: "Guidance-related doubt solving", a: true, b: true },
+      { feature: "Daily targets & updates", a: true, b: true },
+      { feature: "Group size", a: "25–30", b: "25–30" },
+      { feature: "Weekly group meet call", a: "~1 hour", b: "~1 hour" },
+      { feature: "Strategy, planning & consistency coaching", a: true, b: true },
+      { feature: "1-to-1 mentor calls (5 min each)", a: "—", b: "2 calls" },
+      { feature: "Academic doubt solving by educators", a: "—", b: true },
+      { feature: "Live doubt sessions + recordings", a: "—", b: true },
+      { feature: "30-min crisp lectures on most-doubted concepts", a: "—", b: true },
+    ],
+    note:
+      "Bhavya Kothari and Shayan Abdur Raheem mentor groups are available on Gold and Platinum. Daivik Ambati's mentor group is available on Gold only.",
+  },
+];
 
-function matchTier(plan: Plan, tier: MentorshipTier) {
-  const hay = `${plan.id} ${plan.name} ${plan.type} ${plan.mentorship}`.toLowerCase();
-  if (hay.includes(tier.id)) return true;
-  if (tier.id === "gold" && (plan.mentorship === "a" || hay.includes("mentorship a"))) return true;
-  if (tier.id === "diamond" && (plan.mentorship === "b" || hay.includes("mentorship b"))) return true;
-  return false;
+function matchTier(plan: Plan, tier: MentorshipTier, trackId: string) {
+  const slug = (plan.slug || "").toLowerCase();
+  const hay = `${plan.slug} ${plan.name} ${plan.type} ${plan.mentorship} ${plan.tagline}`.toLowerCase();
+  const isNeetPlan = slug.startsWith("neet-") || hay.includes("neet") || hay.includes("brilliancy");
+  if (trackId === "neet" && !isNeetPlan) return false;
+  if (trackId === "jee" && isNeetPlan) return false;
+  return tier.matchKeys.some(
+    (key) => slug === key || hay.includes(key) || plan.mentorship === key,
+  );
 }
 
 export default function SubscriptionPage() {
+  const [user, setUser] = useState<AxiomUser | null>(null);
   const [access, setAccess] = useState<AccountAccess | null>(null);
-  const [signedIn, setSignedIn] = useState(false);
-  const [now, setNow] = useState(Date.now());
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [planError, setPlanError] = useState<string | null>(null);
   const [currentMentorship, setCurrentMentorship] = useState<string | null>(null);
-  const [selected, setSelected] = useState<CheckoutItem | null>(null);
-  const [checkoutState, setCheckoutState] = useState<"idle" | "processing" | "success">("idle");
-  const [payError, setPayError] = useState<string | null>(null);
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [activeTrack, setActiveTrack] = useState<"jee" | "neet">("jee");
+  const [showWhatsAppJoin, setShowWhatsAppJoin] = useState(false);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentOrder[]>([]);
 
-  useEffect(() => {
-    let cancelled = false;
-    void getPlans()
-      .then((next) => {
-        if (!cancelled) setPlans(next);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setPlanError(err instanceof Error ? err.message : "Could not load plans.");
-      });
-    const token = Boolean(getAccessToken());
-    setSignedIn(token);
-    if (!token) return;
+  const loadAccess = () => {
+    if (!getAccessToken()) {
+      setAccess(null);
+      setCurrentMentorship(null);
+      setPaymentHistory([]);
+      return;
+    }
     void Promise.allSettled([
       api<unknown>("/api/me"),
       api<unknown>("/api/student/dashboard"),
       api<Record<string, unknown>>("/api/mentorship"),
-    ]).then(([me, dashboard, mentorship]) => {
-      if (cancelled) return;
+      getPaymentOrders(),
+    ]).then(([me, dashboard, mentorship, payments]) => {
       setAccess(
         readAccountAccess(
           me.status === "fulfilled" ? me.value : null,
@@ -134,23 +344,33 @@ export default function SubscriptionPage() {
           (typeof data.tier === "string" && data.tier) ||
           (typeof data.mentorship_tier === "string" && data.mentorship_tier) ||
           "";
-        if (label && label !== "none") setCurrentMentorship(label);
+        if (label && label !== "none") {
+          setCurrentMentorship(label);
+          setShowWhatsAppJoin(true);
+        }
+      }
+      if (payments.status === "fulfilled") {
+        setPaymentHistory(payments.value);
       }
     });
-    return () => {
-      cancelled = true;
-    };
+  };
+
+  useEffect(() => {
+    const stop = onAuthChange(setUser);
+    void getPlans()
+      .then(setPlans)
+      .catch(() => setPlans([]));
+    loadAccess();
+    return stop;
   }, []);
 
   useEffect(() => {
-    if (!access?.trial) return;
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, [access]);
+    if (user) loadAccess();
+  }, [user]);
 
-  const platformPlans = plans.filter((plan) => !isMentorshipPlan(plan));
-  const displayTiers = TIERS.map((tier) => {
-    const match = plans.find((plan) => matchTier(plan, tier));
+  const track = TRACKS.find((item) => item.id === activeTrack) || TRACKS[0];
+  const displayTiers = track.tiers.map((tier) => {
+    const match = plans.find((plan) => matchTier(plan, tier, track.id));
     if (!match) return tier;
     return {
       ...tier,
@@ -161,151 +381,286 @@ export default function SubscriptionPage() {
     };
   });
 
-  const openCheckout = (item: CheckoutItem) => {
-    setSelected(item);
-    setCheckoutState("idle");
-    setPayError(null);
+  const handleAuth = async (event: FormEvent) => {
+    event.preventDefault();
+    setAuthBusy(true);
+    setNotice(null);
+    try {
+      if (authMode === "signup") {
+        const { user: created, error, needsEmailConfirmation } = await signUpWithEmail({
+          email,
+          password,
+          full_name: fullName,
+          phone: "",
+          class_level: "12",
+          exam_interests: [activeTrack === "neet" ? "neet" : "jee"],
+        });
+        if (error) {
+          setNotice({ type: "err", text: error });
+          return;
+        }
+        if (needsEmailConfirmation) {
+          setNotice({ type: "ok", text: "Account created. Confirm the email, then sign in." });
+          setAuthMode("signin");
+          return;
+        }
+        if (created) {
+          setUser(created);
+          setNotice({ type: "ok", text: "Account created. You can enroll in mentorship." });
+        }
+      } else {
+        const { user: signedIn, error } = await signInWithEmail(email, password);
+        if (error) {
+          setNotice({ type: "err", text: error });
+          return;
+        }
+        if (signedIn) {
+          setUser(signedIn);
+          setNotice({ type: "ok", text: "Signed in." });
+        }
+      }
+    } finally {
+      setAuthBusy(false);
+    }
   };
 
-  const pay = async () => {
-    if (!selected) return;
-    if (!getAccessToken()) {
-      window.location.assign(`/login?next=${encodeURIComponent("/subscription")}`);
+  const handleSignOut = async () => {
+    await signOut();
+    setUser(null);
+    setAccess(null);
+    setCurrentMentorship(null);
+    setShowWhatsAppJoin(false);
+    setPaymentHistory([]);
+    setNotice({ type: "ok", text: "Signed out." });
+  };
+
+  const pay = async (tier: MentorshipTier, description: string) => {
+    if (!user && !getAccessToken() && !getCurrentUser()) {
+      setAuthMode("signin");
+      setNotice({
+        type: "err",
+        text: "Please sign in or create an account before paying — this helps us track your mentor and payment history.",
+      });
+      window.requestAnimationFrame(() => {
+        document.getElementById("mentorship-auth")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
       return;
     }
-    setCheckoutState("processing");
-    setPayError(null);
-    try {
-      await payForPlan(selected.id, {
-        email: access?.email,
-        description: selected.description,
+    const uuidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRe.test(tier.id)) {
+      setNotice({
+        type: "err",
+        text: "This mentorship plan is not available in the catalog yet. Refresh and try again, or contact support.",
       });
-      setCheckoutState("success");
-      if (selected.description.toLowerCase().includes("mentorship")) {
-        setCurrentMentorship(selected.name);
-      }
+      return;
+    }
+    setPayingId(tier.id);
+    setNotice(null);
+    setShowWhatsAppJoin(false);
+    try {
+      await payForPlan(tier.id, {
+        name: user?.name || fullName,
+        email: access?.email || user?.email || email,
+        description,
+      });
+      setNotice({
+        type: "ok",
+        text: `Payment confirmed for ${tier.name}. Join the mentors WhatsApp group below.`,
+      });
+      setCurrentMentorship(`${track.eyebrow.split("·")[0].trim()} · ${tier.name}`);
+      setShowWhatsAppJoin(true);
+      loadAccess();
     } catch (err) {
-      setCheckoutState("idle");
-      setPayError(err instanceof Error ? err.message : "Payment did not complete.");
+      setNotice({ type: "err", text: err instanceof Error ? err.message : "Payment did not complete." });
+    } finally {
+      setPayingId(null);
     }
   };
 
   return (
     <Shell>
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
       <PageHeader
-        eyebrow="Subscription"
-        title="Plans, payment, and IIT JEE mentorship."
-        subtitle="See your access, pay for a platform plan, or enroll in Gold or Diamond mentorship from this page."
+        eyebrow="Mentorship"
+        title="Axiom Prep — Mentorship"
+        subtitle="Choose IIT-JEE or NEET, meet your mentors, and enroll with Razorpay."
       />
 
-      <section className="surface rounded-2xl p-6 sm:p-8">
-        <p className="font-display text-lg italic text-axiom">Current access</p>
-        {!signedIn ? (
-          <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-zinc-400">Sign in to load your trial, payment, and mentorship details.</p>
-            <Link href="/login?next=%2Fsubscription" className="btn-primary h-10 px-4 text-sm">
-              Login
-            </Link>
+      {notice ? (
+        <p className={`mb-6 text-sm ${notice.type === "ok" ? "text-axiom" : "text-red-300"}`}>{notice.text}</p>
+      ) : null}
+
+      {showWhatsAppJoin ? (
+        <section className="surface mb-6 rounded-2xl border border-axiom/40 p-6 sm:p-8">
+          <p className="font-display text-lg italic text-axiom">Mentorship enrolled</p>
+          <h2 className="mt-2 font-display text-2xl font-semibold text-ink">Join your mentors on WhatsApp</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
+            Your mentorship is active. Join Axiom&apos;s Mentorship group to meet your mentors, share daily targets, and
+            get weekly guidance.
+          </p>
+          <a
+            href={MENTOR_WHATSAPP}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-primary mt-5 inline-flex h-11 items-center px-5 text-sm"
+          >
+            Join mentors on WhatsApp
+          </a>
+          <p className="mt-3 break-all text-xs text-zinc-500">{MENTOR_WHATSAPP}</p>
+        </section>
+      ) : null}
+
+      <section id="mentorship-auth" className="surface rounded-2xl p-6 sm:p-8">
+        {user ? (
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-display text-lg italic text-axiom">Signed in</p>
+              <p className="mt-1 text-sm text-zinc-400">{user?.email || access?.email || "Your Axiom Prep account"}</p>
+              {currentMentorship || access?.mentorship ? (
+                <p className="mt-2 text-sm text-zinc-400">
+                  Current mentorship ·{" "}
+                  <span className="text-ink">{currentMentorship || access?.mentorship}</span>
+                </p>
+              ) : null}
+            </div>
+            <button type="button" onClick={() => void handleSignOut()} className="btn-ghost h-10 px-4 text-sm">
+              Sign out
+            </button>
           </div>
         ) : (
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Detail
-              label="Status"
-              value={access?.subscribed ? "Active" : access?.trial ? "Trial active" : access?.status || "—"}
-            />
-            <Detail label="Plan" value={access?.planName || "—"} />
-            <Detail label="Mentorship" value={currentMentorship || access?.mentorship || "None"} />
-            <Detail label="Started" value={access?.startedAt || "—"} />
-            <Detail label="Ends" value={access?.endsAt || "—"} />
-            {access?.trial ? (
-              <div className="sm:col-span-2">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-zinc-500">Trial countdown</p>
-                <p className="mt-1 font-display text-2xl font-semibold tabular-nums text-ink">
-                  {formatCountdown(access.trial.endsAt - now)}
-                </p>
-              </div>
-            ) : null}
-          </div>
+          <>
+            <div className="mb-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setAuthMode("signin")}
+                className={`h-10 px-4 text-sm ${authMode === "signin" ? "btn-primary" : "btn-ghost"}`}
+              >
+                Sign in
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthMode("signup")}
+                className={`h-10 px-4 text-sm ${authMode === "signup" ? "btn-primary" : "btn-ghost"}`}
+              >
+                Create account
+              </button>
+            </div>
+            <form onSubmit={(event) => void handleAuth(event)} className="grid gap-3 sm:max-w-md">
+              {authMode === "signup" ? (
+                <label className="block text-sm text-zinc-400">
+                  Name
+                  <input
+                    required
+                    value={fullName}
+                    onChange={(event) => setFullName(event.target.value)}
+                    className="mt-1 h-11 w-full rounded-xl border border-line bg-transparent px-3 text-ink"
+                    placeholder="Your name"
+                  />
+                </label>
+              ) : null}
+              <label className="block text-sm text-zinc-400">
+                Email
+                <input
+                  required
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="mt-1 h-11 w-full rounded-xl border border-line bg-transparent px-3 text-ink"
+                  placeholder="aspirant@axiom.app"
+                />
+              </label>
+              <label className="block text-sm text-zinc-400">
+                Password
+                <input
+                  required
+                  type="password"
+                  minLength={8}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="mt-1 h-11 w-full rounded-xl border border-line bg-transparent px-3 text-ink"
+                  placeholder="At least 8 characters"
+                />
+              </label>
+              <button type="submit" disabled={authBusy} className="btn-primary mt-2 h-11 text-sm disabled:opacity-60">
+                {authBusy ? "Please wait…" : authMode === "signup" ? "Create account" : "Sign in"}
+              </button>
+            </form>
+            <div className="my-5 flex max-w-md items-center gap-3 text-[11px] uppercase tracking-[0.16em] text-zinc-500">
+              <span className="h-px flex-1 bg-line" />
+              or continue with
+              <span className="h-px flex-1 bg-line" />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                window.location.assign(`/auth/google?next=${encodeURIComponent("/subscription")}`);
+              }}
+              className="btn-ghost h-11 w-full max-w-md text-sm"
+            >
+              Google
+            </button>
+            <p className="mt-3 max-w-md text-xs text-zinc-500">Email and Google both use the Axiom Prep API.</p>
+          </>
         )}
       </section>
 
-      <section className="surface mt-6 rounded-2xl p-6 sm:p-8">
-        <p className="font-display text-lg italic text-axiom">Platform plans</p>
-        <p className="mt-2 text-sm text-zinc-400">Pay here for platform access. Mentorship is a separate IIT JEE programme below.</p>
-        {planError ? <p className="mt-3 text-sm text-red-300">{planError}</p> : null}
-        {platformPlans.length ? (
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            {platformPlans.map((plan) => (
-              <article key={plan.id} className="rounded-2xl border border-line bg-white/[0.02] p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-axiom">{plan.type || "Plan"}</p>
-                <h3 className="mt-1 font-display text-xl font-semibold text-ink">{plan.name}</h3>
-                <p className="mt-1 text-sm text-zinc-400">{plan.tagline}</p>
-                <p className="mt-3 font-display text-2xl font-semibold text-ink">{plan.priceLabel}</p>
-                {plan.features.length ? (
-                  <ul className="mt-3 space-y-1.5 text-sm text-zinc-400">
-                    {plan.features.slice(0, 6).map((feature) => (
-                      <li key={feature}>· {feature}</li>
-                    ))}
-                  </ul>
-                ) : null}
-                {plan.price > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openCheckout({
-                        id: plan.id,
-                        name: plan.name,
-                        priceLabel: plan.priceLabel,
-                        description: `Axiom Prep · ${plan.name}`,
-                      })
-                    }
-                    className="btn-primary mt-5 h-11 w-full text-sm"
-                  >
-                    Pay {plan.priceLabel}
-                  </button>
-                ) : (
-                  <p className="mt-5 text-sm text-axiom">Included with a new account.</p>
-                )}
-              </article>
-            ))}
-          </div>
-        ) : !planError ? (
-          <p className="mt-4 text-sm text-zinc-400">Plans load from the live catalog.</p>
-        ) : null}
-      </section>
+      <div className="mt-10 mb-8 flex flex-wrap gap-2">
+        {TRACKS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setActiveTrack(item.id)}
+            className={`h-11 px-5 text-sm ${activeTrack === item.id ? "btn-primary" : "btn-ghost"}`}
+          >
+            {item.id === "jee" ? "IIT-JEE Mentorship" : "NEET Mentorship"}
+          </button>
+        ))}
+      </div>
 
-      <p className="mb-2 mt-14 text-[13px] font-medium tracking-[0.18em] text-axiom">IIT JEE · Mentorship</p>
-      <PageHeader
-        title="Personal guidance from student mentors of IIT, BITS and ISI."
-        subtitle="The Axiom Prep IIT JEE Mentorship puts you in a group of 25–30 aspirants with daily direction on strategy, planning, and consistency, so every day of preparation counts."
-      />
-      <p className="mb-8 text-sm text-muted">Axiom Prep IIT JEE Mentorship · Early bird · Limited seats</p>
-
-      {currentMentorship ? (
-        <p className="mb-6 text-sm text-axiom">
-          Current mentorship · <span className="font-semibold text-ink">{currentMentorship}</span>
-        </p>
-      ) : null}
+      <p className="mb-2 text-[13px] font-medium tracking-[0.18em] text-axiom">{track.eyebrow}</p>
+      <PageHeader title={track.title} subtitle={track.subtitle} />
 
       <div className="mb-10 grid gap-3 sm:grid-cols-3">
         <Stat label="Group size" value="25–30" detail="Aspirants per group, so every student gets attention" />
-        <Stat label="Weekly" value="~45 min" detail="Group meet call with your mentors" />
+        <Stat label="Weekly" value={track.weeklyCall} detail="Group meet call with your mentors" />
         <Stat label="Daily" value="Targets" detail="Progress updates shared with mentors" />
       </div>
 
+      <section className="mb-12">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-axiom">Meet your mentors</p>
+        <h2 className="mt-2 font-display text-3xl font-semibold text-ink">{track.meetHeading}</h2>
+        <p className="mt-2 max-w-3xl text-sm text-zinc-400">{track.meetSub}</p>
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          {track.mentors.map((mentor) => (
+            <article key={mentor.name} className="rounded-2xl border border-line bg-card px-5 py-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-axiom">{mentor.institute}</p>
+              <h3 className="mt-2 font-display text-2xl font-semibold text-ink">{mentor.name}</h3>
+              <p className="mt-1 text-sm text-zinc-400">{mentor.role}</p>
+              {mentor.availability ? <p className="mt-2 text-xs text-axiom">{mentor.availability}</p> : null}
+              <ul className="mt-4 space-y-2 text-sm leading-relaxed text-zinc-400">
+                {mentor.highlights.map((line) => (
+                  <li key={line}>· {line}</li>
+                ))}
+              </ul>
+              {mentor.tags.length ? (
+                <p className="mt-4 text-xs tracking-[0.04em] text-zinc-500">{mentor.tags.join(" · ")}</p>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="mb-10">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-axiom">Your mentors come from</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          {["IIT", "BITS", "ISI"].map((place) => (
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-axiom">Mentors come from</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {track.institutes.map((place) => (
             <div key={place} className="rounded-2xl border border-line bg-card px-5 py-5">
-              <p className="font-display text-2xl font-semibold text-ink">{place}</p>
+              <p className="font-display text-xl font-semibold text-ink">{place}</p>
               <p className="mt-1 text-sm text-zinc-400">Student mentors · Guidance and strategy</p>
             </div>
           ))}
         </div>
-        <p className="mt-4 font-display text-lg italic text-axiom">
-          Hard work needs the right direction. Your mentors are there to make sure you never lose it.
-        </p>
       </section>
 
       <section className="mb-10">
@@ -336,23 +691,25 @@ export default function SubscriptionPage() {
 
       <section className="mb-6">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-axiom">Plans and early bird pricing</p>
-        <h2 className="mt-2 mb-5 font-display text-3xl font-semibold text-ink">Gold vs Diamond, side by side.</h2>
+        <h2 className="mt-2 mb-5 font-display text-3xl font-semibold text-ink">
+          {`${track.tierLabels[0]} vs ${track.tierLabels[1]}, side by side.`}
+        </h2>
       </section>
 
       <div className="overflow-hidden rounded-[1.75rem] border border-line bg-card">
         <div className="grid grid-cols-[1.4fr_0.8fr_0.8fr] gap-3 border-b border-line px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500 sm:px-7">
           <span>Feature</span>
-          <span className="text-center text-axiom">Gold</span>
-          <span className="text-center text-axiom">Diamond</span>
+          <span className="text-center text-axiom">{track.tierLabels[0]}</span>
+          <span className="text-center text-axiom">{track.tierLabels[1]}</span>
         </div>
-        {ROWS.map((row) => (
+        {track.rows.map((row) => (
           <div
             key={row.feature}
             className="grid grid-cols-[1.4fr_0.8fr_0.8fr] items-center gap-3 border-b border-line/70 px-5 py-3.5 last:border-0 sm:px-7"
           >
             <p className="text-sm text-ink">{row.feature}</p>
-            <Cell value={row.gold} />
-            <Cell value={row.diamond} />
+            <Cell value={row.a} />
+            <Cell value={row.b} />
           </div>
         ))}
         <div className="grid grid-cols-[1.4fr_0.8fr_0.8fr] items-center gap-3 bg-axiom/10 px-5 py-5 sm:px-7">
@@ -367,86 +724,56 @@ export default function SubscriptionPage() {
         </div>
       </div>
 
-      <p className="mt-5 text-sm leading-relaxed text-zinc-400">
-        Diamond students get academic doubts solved by educators with an MSc and PhD, from IIT Bombay, ISI Kolkata, BITS
-        Pilani, and NIT Trichy. Live sessions are recorded, and frequently asked concepts become crisp 30-minute lectures.
-      </p>
+      <p className="mt-5 text-sm leading-relaxed text-zinc-400">{track.note}</p>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        {displayTiers.map((tier) => (
+        {displayTiers.map((tier, index) => (
           <button
             key={tier.id}
             type="button"
-            onClick={() =>
-              openCheckout({
-                id: tier.id,
-                name: tier.name,
-                priceLabel: tier.priceLabel,
-                description: `IIT JEE mentorship · ${tier.name}`,
-              })
-            }
-            className={`h-12 text-sm ${tier.name.toLowerCase().includes("diamond") ? "btn-primary" : "btn-ghost"}`}
+            disabled={payingId === tier.id}
+            onClick={() => void pay(tier, `${track.eyebrow} · ${tier.name}`)}
+            className={`h-12 text-sm disabled:opacity-60 ${index === 1 ? "btn-primary" : "btn-ghost"}`}
           >
-            Enroll in {tier.name} · {tier.priceLabel}
+            {payingId === tier.id ? "Opening Razorpay…" : `Enroll in ${tier.name} · ${tier.priceLabel}`}
           </button>
         ))}
       </div>
 
-      {selected ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="surface w-full max-w-md rounded-2xl p-6">
-            {checkoutState === "success" ? (
-              <div className="text-center">
-                <p className="font-display text-lg italic text-axiom">Paid</p>
-                <h3 className="mt-2 font-display text-3xl font-semibold text-ink">{selected.name}</h3>
-                <p className="mt-2 text-sm text-muted">Your payment is confirmed. Access updates on this account.</p>
-                <button type="button" onClick={() => setSelected(null)} className="btn-primary mt-6 h-11 px-6 text-sm">
-                  Done
-                </button>
-              </div>
-            ) : (
-              <>
-                <p className="font-display text-lg italic text-axiom">Payment</p>
-                <h3 className="mt-1 font-display text-3xl font-semibold text-ink">{selected.name}</h3>
-                <dl className="mt-5 space-y-2 text-sm">
-                  <div className="flex justify-between text-muted">
-                    <dt>Item</dt>
-                    <dd className="text-ink">{selected.description}</dd>
+      {user || getAccessToken() ? (
+        <section className="surface mt-10 rounded-2xl p-6 sm:p-8">
+          <p className="font-display text-lg italic text-axiom">Payment history</p>
+          <h2 className="mt-2 font-display text-2xl font-semibold text-ink">Your mentorship payments</h2>
+          <p className="mt-2 text-sm text-zinc-400">Saved against this signed-in account after each checkout.</p>
+          {paymentHistory.length ? (
+            <div className="mt-5 space-y-3">
+              {paymentHistory.map((order) => (
+                <div
+                  key={order.id}
+                  className="flex flex-col gap-1 rounded-xl border border-line bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-ink">{order.label}</p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {order.createdAt ? new Date(order.createdAt).toLocaleString() : "—"}
+                      {order.paymentId ? ` · ${order.paymentId}` : ""}
+                    </p>
                   </div>
-                  <div className="flex justify-between border-t border-line pt-2 text-muted">
-                    <dt>Amount</dt>
-                    <dd className="font-semibold text-axiom">{selected.priceLabel}</dd>
+                  <div className="text-left sm:text-right">
+                    <p className="text-sm text-ink">
+                      ₹{order.amountInr.toLocaleString()} {order.currency}
+                    </p>
+                    <p className="text-xs uppercase tracking-[0.12em] text-axiom">{order.status}</p>
                   </div>
-                </dl>
-                {payError ? <p className="mt-4 text-sm text-red-300">{payError}</p> : null}
-                <div className="mt-6 flex gap-3">
-                  <button type="button" onClick={() => setSelected(null)} className="btn-ghost h-11 flex-1 text-sm">
-                    Close
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void pay()}
-                    disabled={checkoutState === "processing"}
-                    className="btn-primary h-11 flex-1 text-sm disabled:opacity-60"
-                  >
-                    {checkoutState === "processing" ? "Opening pay…" : `Pay ${selected.priceLabel}`}
-                  </button>
                 </div>
-              </>
-            )}
-          </div>
-        </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-zinc-500">No payments yet for this account.</p>
+          )}
+        </section>
       ) : null}
     </Shell>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[11px] uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-      <p className="mt-1 font-display text-xl font-semibold text-ink">{value}</p>
-    </div>
   );
 }
 

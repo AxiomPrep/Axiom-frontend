@@ -55,7 +55,7 @@ export function Footer() {
                 Login
               </Link>
               <Link href="/subscription" className="block hover:text-ink">
-                Subscription
+                Mentorship
               </Link>
               <Link href="/about" className="block hover:text-ink">
                 About

@@ -132,7 +132,9 @@ export default function LoginPage() {
   };
 
   const handleGoogle = () => {
-    window.location.assign("/auth/google");
+    const next = safeNextPath(new URLSearchParams(window.location.search).get("next"));
+    const qs = next && next !== "/practice" ? `?next=${encodeURIComponent(next)}` : "";
+    window.location.assign(`/auth/google${qs}`);
   };
 
   if (pendingConfirmEmail) {

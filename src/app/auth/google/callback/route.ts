@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { safeNextPath } from "@/lib/auth-paths";
 import { googleRedirectUri, publicSiteOrigin } from "@/lib/google-oauth";
 
 const EXCHANGE_PATHS = [
@@ -31,11 +32,20 @@ async function verifyToken(apiOrigin: string, token: string) {
   return res.ok ? token : null;
 }
 
-function fail(request: NextRequest, code: "google" | "google_api") {
-  const response = NextResponse.redirect(new URL(`/login?error=${code}`, publicSiteOrigin(request)));
+function loginReturnPath(request: NextRequest, query: string) {
+  const next = safeNextPath(request.cookies.get("axiom_google_oauth_next")?.value || null);
+  const params = new URLSearchParams(query);
+  if (next && next !== "/practice") params.set("next", next);
+  const qs = params.toString();
+  return `/login?${qs}`;
+}
+
+function fail(request: NextRequest, code: "google" | "google_api" | "google_redirect") {
+  const response = NextResponse.redirect(new URL(loginReturnPath(request, `error=${code}`), publicSiteOrigin(request)));
   response.cookies.set("axiom_access_token", "", { path: "/", maxAge: 0 });
   response.cookies.set("axiom_google_user", "", { path: "/", maxAge: 0 });
   response.cookies.set("axiom_google_oauth_state", "", { path: "/", maxAge: 0 });
+  response.cookies.set("axiom_google_oauth_next", "", { path: "/", maxAge: 0 });
   return response;
 }
 
@@ -48,7 +58,7 @@ export async function GET(request: NextRequest) {
   const googleError = request.nextUrl.searchParams.get("error");
 
   if (googleError === "redirect_uri_mismatch" || !clientId || !clientSecret) {
-    return NextResponse.redirect(new URL("/login?error=google_redirect", publicSiteOrigin(request)));
+    return fail(request, "google_redirect");
   }
   if (!code || !state || !stored || state !== stored) {
     return fail(request, "google");
@@ -69,9 +79,7 @@ export async function GET(request: NextRequest) {
 
   if (!tokenRes.ok) {
     const body = await tokenRes.text();
-    return NextResponse.redirect(
-      new URL(body.includes("redirect_uri_mismatch") ? "/login?error=google_redirect" : "/login?error=google", publicSiteOrigin(request)),
-    );
+    return fail(request, body.includes("redirect_uri_mismatch") ? "google_redirect" : "google");
   }
 
   const tokens = (await tokenRes.json()) as { access_token?: string; id_token?: string };
@@ -130,7 +138,7 @@ export async function GET(request: NextRequest) {
 
   if (!backendToken) return fail(request, "google_api");
 
-  const response = NextResponse.redirect(new URL("/login?google=ok", publicSiteOrigin(request)));
+  const response = NextResponse.redirect(new URL(loginReturnPath(request, "google=ok"), publicSiteOrigin(request)));
   const secure = publicSiteOrigin(request).startsWith("https");
   response.cookies.set("axiom_access_token", backendToken, {
     httpOnly: false,
@@ -147,5 +155,6 @@ export async function GET(request: NextRequest) {
     maxAge: 60 * 60 * 24 * 30,
   });
   response.cookies.set("axiom_google_oauth_state", "", { path: "/", maxAge: 0 });
+  response.cookies.set("axiom_google_oauth_next", "", { path: "/", maxAge: 0 });
   return response;
 }
