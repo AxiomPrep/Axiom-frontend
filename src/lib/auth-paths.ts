@@ -9,7 +9,8 @@ export function isPublicSitePath(pathname: string) {
     pathname.startsWith("/admin") ||
     pathname.startsWith("/api/") ||
     pathname.startsWith("/catalog/") ||
-    pathname.startsWith("/admin-api/")
+    pathname.startsWith("/admin-api/") ||
+    pathname.startsWith("/brochures/")
   );
 }
 

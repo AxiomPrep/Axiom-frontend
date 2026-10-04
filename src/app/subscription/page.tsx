@@ -40,6 +40,9 @@ type MentorshipTrack = {
   subtitle: string;
   meetHeading: string;
   meetSub: string;
+  brochureHref: string;
+  brochureLabel: string;
+  brochureFileName: string;
   institutes: string[];
   weeklyCall: string;
   mentors: Mentor[];
@@ -90,6 +93,9 @@ const TRACKS: MentorshipTrack[] = [
       "The Axiom Prep IIT-JEE Mentorship puts you in a group of 25–30 aspirants with daily direction on strategy, planning, and consistency.",
     meetHeading: "Meet your IIT-JEE Mentors",
     meetSub: "Students of IIT Delhi · IIT Bombay · IIT Guwahati · ISI Kolkata · BITS Pilani · NIT Trichy",
+    brochureHref: "/brochures/jee-mentorship.pdf",
+    brochureLabel: "Download IIT-JEE mentorship brochure",
+    brochureFileName: "Axiom-IIT-JEE-Mentorship-Brochure.pdf",
     institutes: ["IIT Delhi", "IIT Bombay", "IIT Guwahati", "BITS Pilani", "ISI Kolkata", "NIT Trichy"],
     weeklyCall: "~45 min",
     mentors: [
@@ -210,6 +216,9 @@ const TRACKS: MentorshipTrack[] = [
       "Brilliancy Mentors puts you in a small group guided by mentors who cracked NEET, with daily direction on strategy, planning, and consistency.",
     meetHeading: "Meet your NEET Mentors",
     meetSub: "Guidance from those who have already cracked NEET",
+    brochureHref: "/brochures/neet-mentorship.pdf",
+    brochureLabel: "Download NEET mentorship brochure",
+    brochureFileName: "Axiom-NEET-Brilliancy-Mentors-Brochure.pdf",
     institutes: ["Seth GS Medical College", "JIPMER Puducherry", "AIIMS Bhopal"],
     weeklyCall: "~1 hour",
     mentors: [
@@ -620,6 +629,17 @@ export default function SubscriptionPage() {
 
       <p className="mb-2 text-[13px] font-medium tracking-[0.18em] text-axiom">{track.eyebrow}</p>
       <PageHeader title={track.title} subtitle={track.subtitle} />
+      <div className="mb-8">
+        <a
+          href={track.brochureHref}
+          download={track.brochureFileName}
+          target="_blank"
+          rel="noreferrer"
+          className="btn-ghost inline-flex h-11 items-center px-5 text-sm"
+        >
+          {track.brochureLabel}
+        </a>
+      </div>
 
       <div className="mb-10 grid gap-3 sm:grid-cols-3">
         <Stat label="Group size" value="25–30" detail="Aspirants per group, so every student gets attention" />
