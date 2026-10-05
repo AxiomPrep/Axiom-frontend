@@ -1,3 +1,5 @@
+import { SUBJECT_MOCK_QUESTIONS } from './subjectMockQuestions'
+
 export interface Question {
   id: number
   subject: string
@@ -737,6 +739,7 @@ export const MOCK_QUESTIONS: Question[] = [
     explanation:
       'Using the parallel axis theorem: I_tangent = I_cm + M R² = (2/5) M R² + M R² = (7/5) M R². The radius of gyration k is defined by I = M k². Equating gives M k² = (7/5) M R² ⇒ k = √(7/5) R.',
   },
+  ...SUBJECT_MOCK_QUESTIONS,
 ]
 
 export const PYQ_EXAM_SETS: PYQExamSet[] = [

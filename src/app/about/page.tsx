@@ -27,8 +27,19 @@ const GROUPS = [
     people: ["Shruti Sharma", "Ayush Raj", "Ajinkya", "Himnish", "Loknath Panda"],
   },
   {
-    title: "Mentors",
-    people: ["Bhavya Kothari", "Shayan Raheem", "Daivik Ambati"],
+    title: "IIT-JEE Mentors",
+    people: [
+      "Lakshay Garg",
+      "Kaushik Tiwari",
+      "Aryan Prajapati",
+      "Vanshu Sharma",
+      "Himnish Taneja",
+      "Lokanath Panda",
+    ],
+  },
+  {
+    title: "NEET Mentors",
+    people: ["Bhavya Kothari", "Shayan Abdur Raheem", "Daivik Ambati"],
   },
 ];
 

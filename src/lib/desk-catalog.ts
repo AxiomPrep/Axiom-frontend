@@ -22,10 +22,20 @@ function norm(value?: string | null) {
 
 export function sameSubject(itemSubject: string | null | undefined, filter?: string | null) {
   if (!filter) return true;
-  const a = norm(itemSubject);
-  const b = norm(filter);
-  if (!a) return true;
-  return a === b || a.includes(b) || b.includes(a);
+  const a = normalizeSubjectKey(itemSubject);
+  const b = normalizeSubjectKey(filter);
+  if (!a) return false;
+  return a === b;
+}
+
+function normalizeSubjectKey(value?: string | null) {
+  const raw = norm(value).replace(/\s+/g, "-");
+  if (!raw) return "";
+  if (raw === "math" || raw === "maths" || raw === "mathematics") return "mathematics";
+  if (raw === "chem" || raw === "chemistry") return "chemistry";
+  if (raw === "bio" || raw === "biology") return "biology";
+  if (raw === "phy" || raw === "physics") return "physics";
+  return raw;
 }
 
 export function sameChapter(itemChapter: string | null | undefined, filter?: string | null) {
@@ -228,9 +238,22 @@ export function mergeCatalogRows<T extends Record<string, unknown>>(live: T[], s
     const key = catalogKey(row);
     if (key) used.add(key);
     const extra = seedBy.get(key);
-    if (!extra) return row;
-    if (catalogCount(row) > 0) return { ...extra, ...row };
-    return { ...row, ...extra, id: row.id || extra.id };
+    if (!extra) {
+      // Keep curriculum slug ids whenever the live title maps to a known chapter.
+      if (key && CHAPTERS.some((chapter) => chapter.id === key)) {
+        return { ...row, id: key };
+      }
+      return row;
+    }
+    // Prefer live counts/metadata, but never let live UUIDs replace seed chapter slugs
+    // (practice mocks and /catalog/questions match on those slugs).
+    return {
+      ...extra,
+      ...row,
+      id: extra.id,
+      title: extra.title || extra.name || row.title || row.name,
+      name: extra.name || extra.title || row.name || row.title,
+    };
   });
   for (const row of seed) {
     const key = catalogKey(row);
