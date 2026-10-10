@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import Script from "next/script";
 import { api } from "@/lib/api";
 import { getCurrentUser, onAuthChange, signInWithEmail, signOut, signUpWithEmail, type AxiomUser } from "@/lib/auth";
@@ -8,11 +9,12 @@ import { getAccessToken } from "@/lib/session";
 import { readAccountAccess, type AccountAccess } from "@/lib/entitlement";
 import { getPaymentOrders, getPlans, payForPlan, type PaymentOrder, type Plan } from "@/lib/study-api";
 import { PageHeader, Shell } from "@/components/ui";
+import { POLICY_VERSION } from "@/data/policies";
 
 type Cell = true | string;
 
 const MENTOR_WHATSAPP =
-  "https://chat.whatsapp.com/LhZMr8pKBwPIYoOuZE4Avv?s=cl&p=a&ilr=4&iam=0";
+  "https://chat.whatsapp.com/F3uLLEbjfbSLFrugQhgsFj?s=cl&p=a&mlu=4&ilr=4&iam=0";
 
 type Mentor = {
   name: string;
@@ -324,6 +326,7 @@ export default function SubscriptionPage() {
   const [activeTrack, setActiveTrack] = useState<"jee" | "neet">("jee");
   const [showWhatsAppJoin, setShowWhatsAppJoin] = useState(false);
   const [paymentHistory, setPaymentHistory] = useState<PaymentOrder[]>([]);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const loadAccess = () => {
     if (!getAccessToken()) {
@@ -455,6 +458,16 @@ export default function SubscriptionPage() {
       });
       return;
     }
+    if (!acceptedTerms) {
+      setNotice({
+        type: "err",
+        text: "Please accept the Terms and Conditions and Refund Policy before continuing to payment.",
+      });
+      window.requestAnimationFrame(() => {
+        document.getElementById("mentorship-terms")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+      return;
+    }
     const uuidRe =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!uuidRe.test(tier.id)) {
@@ -467,15 +480,36 @@ export default function SubscriptionPage() {
     setPayingId(tier.id);
     setNotice(null);
     setShowWhatsAppJoin(false);
+    const payerEmail = (access?.email || user?.email || email || "").trim();
+    const payerName = user?.name || fullName || payerEmail;
     try {
+      const recorded = await api<{ acceptance?: { id: string; acceptedAt?: string } }>(
+        "/catalog/policy-acceptances",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            email: payerEmail,
+            name: payerName,
+            userId: user?.id || null,
+            planId: tier.id,
+            planName: `${track.eyebrow} · ${tier.name}`,
+            track: activeTrack,
+            termsAccepted: true,
+            refundAccepted: true,
+            privacyAcknowledged: true,
+            policyVersion: POLICY_VERSION,
+          }),
+        },
+      );
+      const acceptanceId = recorded.acceptance?.id || "unrecorded";
       await payForPlan(tier.id, {
-        name: user?.name || fullName,
-        email: access?.email || user?.email || email,
-        description,
+        name: payerName,
+        email: payerEmail,
+        description: `${description} · terms ${POLICY_VERSION} · accept ${acceptanceId}`,
       });
       setNotice({
         type: "ok",
-        text: `Payment confirmed for ${tier.name}. Join the mentors WhatsApp group below.`,
+        text: `Payment confirmed for ${tier.name}. Terms acceptance saved (${acceptanceId}). Join the mentors WhatsApp group below.`,
       });
       setCurrentMentorship(`${track.eyebrow.split("·")[0].trim()} · ${tier.name}`);
       setShowWhatsAppJoin(true);
@@ -746,16 +780,57 @@ export default function SubscriptionPage() {
 
       <p className="mt-5 text-sm leading-relaxed text-zinc-400">{track.note}</p>
 
+      <section id="mentorship-terms" className="surface mt-8 rounded-2xl p-5 sm:p-6">
+        <p className="font-display text-lg italic text-axiom">Before you pay</p>
+        <h2 className="mt-2 font-display text-2xl font-semibold text-ink">Accept Terms and Refund Policy</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
+          You must accept these before payment. We save your acceptance (name, email, plan, time, and policy version)
+          so we can verify it later.
+        </p>
+        <label className="mt-5 flex cursor-pointer items-start gap-3 text-sm leading-relaxed text-zinc-300">
+          <input
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(event) => setAcceptedTerms(event.target.checked)}
+            className="mt-1 h-4 w-4 shrink-0 accent-[var(--axiom)]"
+          />
+          <span>
+            I have read and accept the{" "}
+            <Link href="/terms" target="_blank" className="text-axiom hover:text-axiom-hover underline-offset-2 hover:underline">
+              Terms and Conditions
+            </Link>{" "}
+            and{" "}
+            <Link href="/refund" target="_blank" className="text-axiom hover:text-axiom-hover underline-offset-2 hover:underline">
+              Refund Policy
+            </Link>
+            . I also acknowledge the{" "}
+            <Link href="/privacy" target="_blank" className="text-axiom hover:text-axiom-hover underline-offset-2 hover:underline">
+              Privacy Policy
+            </Link>
+            .
+          </span>
+        </label>
+        {!acceptedTerms ? (
+          <p className="mt-3 text-xs text-zinc-500">Payment stays locked until you accept.</p>
+        ) : (
+          <p className="mt-3 text-xs text-axiom">Accepted · policy version {POLICY_VERSION}</p>
+        )}
+      </section>
+
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
         {displayTiers.map((tier, index) => (
           <button
             key={tier.id}
             type="button"
-            disabled={payingId === tier.id}
+            disabled={payingId === tier.id || !acceptedTerms}
             onClick={() => void pay(tier, `${track.eyebrow} · ${tier.name}`)}
             className={`h-12 text-sm disabled:opacity-60 ${index === 1 ? "btn-primary" : "btn-ghost"}`}
           >
-            {payingId === tier.id ? "Opening Razorpay…" : `Enroll in ${tier.name} · ${tier.priceLabel}`}
+            {payingId === tier.id
+              ? "Opening Razorpay…"
+              : !acceptedTerms
+                ? `Accept terms to enroll · ${tier.priceLabel}`
+                : `Enroll in ${tier.name} · ${tier.priceLabel}`}
           </button>
         ))}
       </div>

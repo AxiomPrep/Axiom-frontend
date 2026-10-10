@@ -68,9 +68,23 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-line/50">
-        <p className="mx-auto max-w-6xl px-4 py-5 text-xs text-zinc-600 sm:px-6">
-          © {new Date().getFullYear()} Axiom Prep. All rights reserved.
-        </p>
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-5 text-xs text-zinc-600 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <p>© {new Date().getFullYear()} Axiom Prep. All rights reserved.</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            <Link href="/policies" className="hover:text-ink">
+              Policies
+            </Link>
+            <Link href="/terms" className="hover:text-ink">
+              Terms
+            </Link>
+            <Link href="/refund" className="hover:text-ink">
+              Refund
+            </Link>
+            <Link href="/privacy" className="hover:text-ink">
+              Privacy
+            </Link>
+          </div>
+        </div>
       </div>
     </footer>
   );

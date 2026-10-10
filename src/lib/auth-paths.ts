@@ -4,6 +4,10 @@ export function isPublicSitePath(pathname: string) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/about") ||
     pathname.startsWith("/subscription") ||
+    pathname.startsWith("/policies") ||
+    pathname.startsWith("/privacy") ||
+    pathname.startsWith("/terms") ||
+    pathname.startsWith("/refund") ||
     pathname.startsWith("/coming-soon") ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/admin") ||
