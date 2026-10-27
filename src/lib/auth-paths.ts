@@ -14,7 +14,8 @@ export function isPublicSitePath(pathname: string) {
     pathname.startsWith("/api/") ||
     pathname.startsWith("/catalog/") ||
     pathname.startsWith("/admin-api/") ||
-    pathname.startsWith("/brochures/")
+    pathname.startsWith("/brochures/") ||
+    /^\/google[a-z0-9]+\.html$/i.test(pathname)
   );
 }
 
