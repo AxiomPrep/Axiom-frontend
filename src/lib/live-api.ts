@@ -1,4 +1,4 @@
-import { getApiOrigin } from "@/lib/api-origin";
+import { getApiOrigin, SUPABASE_ANON_KEY } from "@/lib/api-origin";
 
 const API_ORIGIN = getApiOrigin();
 
@@ -13,12 +13,12 @@ export async function proxyLiveJson<T>(
   if (auth) headers.set("authorization", auth);
   if (cookie) headers.set("cookie", cookie);
   if (init?.body !== undefined) headers.set("content-type", "application/json");
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (anon && API_ORIGIN.includes("supabase.co")) headers.set("apikey", anon);
+  if (API_ORIGIN.includes("supabase.co")) headers.set("apikey", SUPABASE_ANON_KEY);
   try {
     const res = await fetch(`${API_ORIGIN}${path}`, {
       method: init?.method || "GET",
       headers,
+      credentials: "omit",
       body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
       cache: "no-store",
       signal: AbortSignal.timeout(25000),

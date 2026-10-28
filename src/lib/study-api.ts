@@ -569,6 +569,7 @@ export interface CheckoutPayload {
   amount: number
   currency: string
   key: string
+  checkoutUrl: string
 }
 
 export async function createCheckout(planId: string): Promise<CheckoutPayload> {
@@ -577,13 +578,15 @@ export async function createCheckout(planId: string): Promise<CheckoutPayload> {
     body: JSON.stringify({ plan_id: planId }),
   })
   const nested = (data.checkout || data.order || data) as Record<string, unknown>
+  const orderId = String(nested.order_id || nested.orderId || '')
   return {
     id: String(nested.id || data.id || planId),
     planId,
-    orderId: String(nested.order_id || nested.orderId || nested.id || ''),
+    orderId,
     amount: Number(nested.amount || nested.amount_paise || 0),
     currency: String(nested.currency || 'INR'),
     key: String(nested.key || nested.razorpay_key || nested.key_id || data.key_id || ''),
+    checkoutUrl: String(nested.checkout_url || nested.short_url || nested.payment_link_url || ''),
   }
 }
 
@@ -650,29 +653,59 @@ export async function payForPlan(
   options?: { name?: string; email?: string; description?: string },
 ): Promise<{ ok: boolean }> {
   const checkout = await createCheckout(planId)
+  if (checkout.checkoutUrl) {
+    window.location.assign(checkout.checkoutUrl)
+    return new Promise(() => {})
+  }
   if (!checkout.orderId || !checkout.key) {
     throw new Error('Payment order was not created. Sign in and try again.')
   }
   const Razorpay = await loadRazorpay()
   return new Promise((resolve, reject) => {
+    let settled = false
+    const finish = (fn: () => void) => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timer)
+      fn()
+    }
+    const timer = window.setTimeout(() => {
+      finish(() =>
+        reject(
+          new Error(
+            'Razorpay opened but payment options did not load. In Razorpay Dashboard add https://axiomprepedu.netlify.app under Website & app, then retry.',
+          ),
+        ),
+      )
+    }, 20000)
+
     const rz = new Razorpay({
-      key: checkout.key,
+      key: checkout.key.trim(),
       amount: checkout.amount,
-      currency: checkout.currency,
-      order_id: checkout.orderId,
+      currency: checkout.currency || 'INR',
+      order_id: checkout.orderId.startsWith('order_') ? checkout.orderId : undefined,
       name: 'Axiom Prep',
       description: options?.description || 'Axiom Prep mentorship',
       prefill: { name: options?.name || '', email: options?.email || '' },
+      theme: { color: '#d4a15a' },
       handler: (response: {
         razorpay_order_id: string
         razorpay_payment_id: string
         razorpay_signature: string
       }) => {
-        void confirmCheckout(response).then(resolve).catch(reject)
+        finish(() => {
+          void confirmCheckout(response).then(resolve).catch(reject)
+        })
       },
       modal: {
-        ondismiss: () => reject(new Error('Payment cancelled.')),
+        ondismiss: () => finish(() => reject(new Error('Payment cancelled.'))),
       },
+    }) as { open: () => void; on: (event: string, cb: (err: { error?: { description?: string } }) => void) => void }
+
+    rz.on('payment.failed', (err) => {
+      finish(() =>
+        reject(new Error(err?.error?.description || 'Razorpay could not start this payment. Add this website in Razorpay Dashboard → Website & app.')),
+      )
     })
     rz.open()
   })

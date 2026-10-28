@@ -380,6 +380,26 @@ export default function SubscriptionPage() {
     if (user) loadAccess();
   }, [user]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = (params.get("razorpay_payment_link_status") || "").toLowerCase();
+    if (status === "paid") {
+      setNotice({
+        type: "ok",
+        text: "Payment received. Your mentorship will activate in a few seconds.",
+      });
+      setShowWhatsAppJoin(true);
+      loadAccess();
+      window.history.replaceState({}, "", window.location.pathname);
+      const timer = window.setTimeout(() => loadAccess(), 2500);
+      return () => window.clearTimeout(timer);
+    }
+    if (status === "cancelled" || status === "expired") {
+      setNotice({ type: "err", text: "Payment was not completed." });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
   const track = TRACKS.find((item) => item.id === activeTrack) || TRACKS[0];
   const displayTiers = track.tiers.map((tier) => {
     const match = plans.find((plan) => matchTier(plan, tier, track.id));
@@ -531,7 +551,9 @@ export default function SubscriptionPage() {
       />
 
       {notice ? (
-        <p className={`mb-6 text-sm ${notice.type === "ok" ? "text-axiom" : "text-red-300"}`}>{notice.text}</p>
+        <p className={`mb-6 text-sm ${notice.type === "ok" ? "text-axiom" : "text-red-300"}`}>
+          {typeof notice.text === "string" ? notice.text : "Something went wrong. Try again."}
+        </p>
       ) : null}
 
       {showWhatsAppJoin ? (
@@ -827,7 +849,7 @@ export default function SubscriptionPage() {
             className={`h-12 text-sm disabled:opacity-60 ${index === 1 ? "btn-primary" : "btn-ghost"}`}
           >
             {payingId === tier.id
-              ? "Opening Razorpay…"
+              ? "Redirecting to Razorpay…"
               : !acceptedTerms
                 ? `Accept terms to enroll · ${tier.priceLabel}`
                 : `Enroll in ${tier.name} · ${tier.priceLabel}`}

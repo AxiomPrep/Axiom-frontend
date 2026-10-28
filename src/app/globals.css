@@ -568,3 +568,9 @@ html[data-theme="light"] .prose-invert {
     animation: none;
   }
 }
+
+.razorpay-container,
+.razorpay-checkout-frame,
+iframe[src*="razorpay"] {
+  z-index: 2147483646 !important;
+}

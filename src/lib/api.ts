@@ -1,5 +1,5 @@
 import { getAccessToken } from "@/lib/session";
-import { getApiOrigin } from "@/lib/api-origin";
+import { getApiOrigin, SUPABASE_ANON_KEY, SUPABASE_FUNCTIONS_ORIGIN } from "@/lib/api-origin";
 
 export class ApiClientError extends Error {
   status: number;
@@ -46,17 +46,17 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (anon && LIVE_API.includes("supabase.co") && !headers.has("apikey")) {
-    headers.set("apikey", anon);
+  if (LIVE_API.includes("supabase.co") && !headers.has("apikey")) {
+    headers.set("apikey", SUPABASE_ANON_KEY);
   }
   if (!token && path.startsWith("/api/") && !isPublicApiPath(path)) {
     throw new ApiClientError(401, "unauthorized", "Authentication required");
   }
 
-  const res = await fetch(apiUrl(path), {
+  const url = apiUrl(path);
+  const res = await fetch(url, {
     ...init,
-    credentials: "include",
+    credentials: url.startsWith(SUPABASE_FUNCTIONS_ORIGIN) ? "omit" : "include",
     headers,
   });
 
