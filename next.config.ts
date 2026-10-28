@@ -4,6 +4,14 @@ const API_ORIGIN = process.env.API_ORIGIN || process.env.NEXT_PUBLIC_API_ORIGIN 
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  compress: true,
+  poweredByHeader: false,
+  experimental: {
+    optimizePackageImports: ["lucide-react"],
+  },
+  images: {
+    formats: ["image/avif", "image/webp"],
+  },
   serverExternalPackages: ["xlsx"],
   transpilePackages: ["pdfjs-dist"],
   webpack: (config) => {

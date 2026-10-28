@@ -1,4 +1,5 @@
 import { api, ApiClientError } from './api'
+import { invalidateCache } from './request-cache'
 import { clearAccessToken, getAccessToken, setAccessToken } from './session'
 import {
   examTrackFromInterests,
@@ -133,20 +134,29 @@ async function establishSession(payload: Record<string, unknown>, fallback: { em
   return getCurrentUser() as AxiomUser
 }
 
-export async function refreshSession(): Promise<AxiomUser | null> {
+let lastRefreshAt = 0
+
+export async function refreshSession(force = false): Promise<AxiomUser | null> {
   const token = getAccessToken()
   if (!token) {
+    lastRefreshAt = 0
     clearLocalSession()
     emit(null)
     return null
   }
 
+  if (!force && currentUser && Date.now() - lastRefreshAt < 45_000) {
+    return currentUser
+  }
+
   try {
     const me = await api<unknown>('/api/me')
     const user = mapProfile(me)
+    lastRefreshAt = Date.now()
     persistAndEmit(user)
     return user
   } catch {
+    lastRefreshAt = 0
     clearLocalSession()
     if (typeof window !== 'undefined') {
       await fetch('/auth/session', { method: 'DELETE' }).catch(() => {})
@@ -233,6 +243,8 @@ export async function signInWithEmail(
 }
 
 export async function signOut(): Promise<void> {
+  lastRefreshAt = 0
+  invalidateCache()
   clearLocalSession()
   if (typeof window !== 'undefined') {
     await fetch('/auth/session', { method: 'DELETE' }).catch(() => {})

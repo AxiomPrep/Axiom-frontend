@@ -66,7 +66,7 @@ export function SessionTimerBar() {
     };
     window.addEventListener(TIMER_EVENT, onChange);
     window.addEventListener("storage", onChange);
-    const poll = getAccessToken() ? window.setInterval(() => void refresh(), 8000) : undefined;
+    const poll = getAccessToken() ? window.setInterval(() => void refresh(), 25000) : undefined;
     return () => {
       window.removeEventListener(TIMER_EVENT, onChange);
       window.removeEventListener("storage", onChange);

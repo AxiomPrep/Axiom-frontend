@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
 import { curriculumSubjects, mergeSubjects } from "@/lib/desk-catalog";
-import { proxyLiveJson } from "@/lib/live-api";
+import { catalogResponse, proxyLiveJson } from "@/lib/live-api";
+
+export const revalidate = 60;
 
 export async function GET(req: Request) {
   const live = await proxyLiveJson<{ subjects?: Array<Record<string, unknown>> }>(req, "/api/practice/subjects");
   const subjects = mergeSubjects(live?.subjects || [], curriculumSubjects());
-  return NextResponse.json({ subjects });
+  return catalogResponse({ subjects });
 }

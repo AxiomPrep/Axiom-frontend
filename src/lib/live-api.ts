@@ -1,4 +1,13 @@
+import { NextResponse } from "next/server";
 import { getApiOrigin, SUPABASE_ANON_KEY } from "@/lib/api-origin";
+
+export function catalogResponse<T>(data: T, ttl = 60) {
+  return NextResponse.json(data, {
+    headers: {
+      "Cache-Control": `public, s-maxage=${ttl}, stale-while-revalidate=${ttl * 5}`,
+    },
+  });
+}
 
 const API_ORIGIN = getApiOrigin();
 
@@ -15,13 +24,17 @@ export async function proxyLiveJson<T>(
   if (init?.body !== undefined) headers.set("content-type", "application/json");
   if (API_ORIGIN.includes("supabase.co")) headers.set("apikey", SUPABASE_ANON_KEY);
   try {
+    const method = init?.method || "GET";
+    const anonymousGet = method === "GET" && !auth && !cookie;
     const res = await fetch(`${API_ORIGIN}${path}`, {
-      method: init?.method || "GET",
+      method,
       headers,
       credentials: "omit",
       body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
-      cache: "no-store",
-      signal: AbortSignal.timeout(25000),
+      ...(anonymousGet
+        ? { cache: "force-cache" as RequestCache, next: { revalidate: 60 } }
+        : { cache: "no-store" as RequestCache }),
+      signal: AbortSignal.timeout(12000),
     });
     if (!res.ok) return null;
     return (await res.json()) as T;

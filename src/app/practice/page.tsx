@@ -4,8 +4,10 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiClientError } from "@/lib/api";
 import type { AdminContent } from "@/lib/admin";
+import { PageLoader } from "@/components/BrandLoader";
 import { DeskRail } from "@/components/DeskRail";
 import { ApiStatus, PageHeader, Shell } from "@/components/ui";
+import { markNavigating } from "@/lib/nav-progress";
 
 type PracticeSubject = {
   id: string;
@@ -59,6 +61,7 @@ function PracticeContent() {
   const [selectedTier, setSelectedTier] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [desk, setDesk] = useState<AdminContent[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     void api<{ subjects?: Array<Record<string, unknown>> }>("/catalog/practice/subjects")
@@ -70,9 +73,9 @@ function PracticeContent() {
             name: String(subject.name || "Subject"),
             formula: String(subject.formula || ""),
             tagline: String(subject.tagline || subject.description || ""),
-            totalQuestions: num(subject.total_questions ?? subject.question_count),
-            class11Count: num(subject.class_11_count ?? subject.class11_count),
-            class12Count: num(subject.class_12_count ?? subject.class12_count),
+            totalQuestions: num(subject.total_questions ?? subject.question_count ?? subject.questions),
+            class11Count: num(subject.class_11_count ?? subject.class11_count ?? subject.class_11_chapters),
+            class12Count: num(subject.class_12_count ?? subject.class12_count ?? subject.class_12_chapters),
           })),
         );
       })
@@ -82,7 +85,8 @@ function PracticeContent() {
             ? err
             : new ApiClientError(500, "error", err instanceof Error ? err.message : "Could not load practice."),
         );
-      });
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const currentSubject = subjects.find((s) => s.id === selectedSubjectId || s.slug === selectedSubjectId);
@@ -175,6 +179,7 @@ function PracticeContent() {
   const startPractice = () => {
     const chapterId = selectedChapterId || chaptersForSubject[0]?.id;
     if (!currentSubject || !chapterId) return;
+    markNavigating();
     void api<{ id?: string; attempt?: { id?: string } }>("/api/practice/attempt", {
       method: "POST",
       body: JSON.stringify({
@@ -197,6 +202,7 @@ function PracticeContent() {
         if (attemptId) query.set("attempt", attemptId);
         query.set("subjectName", currentSubject.name);
         query.set("chapterName", currentChapter?.name || "");
+        markNavigating();
         query.set("tierName", tier?.name || `Tier ${selectedTier}`);
         router.push(`/practice/player?${query}`);
       })
@@ -210,15 +216,21 @@ function PracticeContent() {
           chapterName: currentChapter?.name || "",
           tierName: tier?.name || `Tier ${selectedTier}`,
         });
+        markNavigating();
         router.push(`/practice/player?${query}`);
       });
   };
 
   const openReader = (tierId: number) => {
+    markNavigating();
     router.push(
       `/reader?type=practice&subject=${selectedSubjectId}&class=${selectedClass || "11"}&chapter=${selectedChapterId || ""}&tier=${tierId}`,
     );
   };
+
+  if (loading) {
+    return <PageLoader label="Loading practice" />;
+  }
 
   return (
     <Shell>
@@ -427,13 +439,7 @@ function PracticeContent() {
 
 export default function PracticePage() {
   return (
-    <Suspense
-      fallback={
-        <Shell>
-          <p className="text-sm text-muted">Loading practice…</p>
-        </Shell>
-      }
-    >
+    <Suspense fallback={<PageLoader label="Loading practice" />}>
       <PracticeContent />
     </Suspense>
   );

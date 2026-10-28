@@ -1,5 +1,6 @@
 import { getAccessToken } from "@/lib/session";
 import { getApiOrigin, SUPABASE_ANON_KEY, SUPABASE_FUNCTIONS_ORIGIN } from "@/lib/api-origin";
+import { getCached, invalidateCache, setCached, shouldCacheRequest, singleflight } from "@/lib/request-cache";
 
 export class ApiClientError extends Error {
   status: number;
@@ -19,10 +20,30 @@ function isLocalBffPath(path: string) {
   return clean.startsWith("/api/teachers") || clean.startsWith("/api/contents");
 }
 
+function rewriteCatalogPath(path: string) {
+  const qIndex = path.indexOf("?");
+  const base = qIndex >= 0 ? path.slice(0, qIndex) : path;
+  const query = qIndex >= 0 ? path.slice(qIndex) : "";
+  const mapped =
+    base === "/catalog/practice/subjects"
+      ? "/api/practice/subjects"
+      : base === "/catalog/pyq/subjects"
+        ? "/api/pyq/subjects"
+        : base === "/catalog/plans"
+          ? "/api/plans"
+          : base === "/catalog/ncert"
+            ? "/api/ncert"
+            : /^\/catalog\/practice\/subjects\/[^/]+\/classes\/[^/]+\/chapters$/.test(base)
+              ? base.replace("/catalog/practice/subjects/", "/api/practice/subjects/")
+              : null;
+  return mapped ? `${mapped}${query}` : path;
+}
+
 function apiUrl(path: string) {
-  if (typeof window === "undefined") return path;
-  if (!path.startsWith("/api/") || isLocalBffPath(path)) return path;
-  return `${LIVE_API}${path}`;
+  const resolved = rewriteCatalogPath(path);
+  if (typeof window === "undefined") return resolved;
+  if (!resolved.startsWith("/api/") || isLocalBffPath(resolved)) return resolved;
+  return `${LIVE_API}${resolved}`;
 }
 
 function isPublicApiPath(path: string) {
@@ -37,7 +58,7 @@ function isPublicApiPath(path: string) {
   );
 }
 
-export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+async function sendApi<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   if (init?.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -49,7 +70,8 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (LIVE_API.includes("supabase.co") && !headers.has("apikey")) {
     headers.set("apikey", SUPABASE_ANON_KEY);
   }
-  if (!token && path.startsWith("/api/") && !isPublicApiPath(path)) {
+  const resolved = rewriteCatalogPath(path);
+  if (!token && resolved.startsWith("/api/") && !isPublicApiPath(resolved)) {
     throw new ApiClientError(401, "unauthorized", "Authentication required");
   }
 
@@ -76,6 +98,24 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return data as T;
+}
+
+export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = String(init?.method || "GET").toUpperCase();
+  if (method !== "GET") {
+    invalidateCache(rewriteCatalogPath(path).split("?")[0]);
+    return sendApi<T>(path, init);
+  }
+  if (!shouldCacheRequest(path, method)) {
+    return sendApi<T>(path, init);
+  }
+  const cached = getCached<T>(path);
+  if (cached !== undefined) return cached;
+  return singleflight(path, async () => {
+    const data = await sendApi<T>(path, init);
+    setCached(path, data);
+    return data;
+  });
 }
 
 export function isUnauthorized(err: unknown) {

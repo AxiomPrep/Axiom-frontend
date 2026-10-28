@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { onAuthChange, refreshSession, signInWithEmail, signOut, signUpWithEmail, type AxiomUser } from "@/lib/auth";
 import { safeNextPath } from "@/lib/auth-paths";
 import { getAccessToken, setAccessToken } from "@/lib/session";
+import { BrandLoader } from "@/components/BrandLoader";
 import { PageHeader, Shell } from "@/components/ui";
 import {
   CLASS_LEVELS,
@@ -340,6 +341,11 @@ export default function LoginPage() {
             <button type="submit" disabled={loading} className="btn-primary h-11 w-full text-sm disabled:opacity-60">
               {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
             </button>
+            {loading ? (
+              <div className="pt-4">
+                <BrandLoader size="mark" label="Working" />
+              </div>
+            ) : null}
           </form>
 
           <div className="my-6 flex items-center gap-3 text-[11px] uppercase tracking-[0.16em] text-zinc-500">

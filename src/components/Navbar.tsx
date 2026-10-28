@@ -57,6 +57,7 @@ export function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
+                prefetch
                 className={`relative rounded-full px-2.5 py-2 text-[13px] font-medium tracking-[-0.01em] whitespace-nowrap transition ${
                   active ? "text-ink" : "text-zinc-400 hover:text-ink"
                 }`}

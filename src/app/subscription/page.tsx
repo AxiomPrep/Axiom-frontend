@@ -503,33 +503,29 @@ export default function SubscriptionPage() {
     const payerEmail = (access?.email || user?.email || email || "").trim();
     const payerName = user?.name || fullName || payerEmail;
     try {
-      const recorded = await api<{ acceptance?: { id: string; acceptedAt?: string } }>(
-        "/api/policy-acceptances",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            email: payerEmail,
-            name: payerName,
-            userId: user?.id || null,
-            planId: tier.id,
-            planName: `${track.eyebrow} · ${tier.name}`,
-            track: activeTrack,
-            termsAccepted: true,
-            refundAccepted: true,
-            privacyAcknowledged: true,
-            policyVersion: POLICY_VERSION,
-          }),
-        },
-      );
-      const acceptanceId = recorded.acceptance?.id || "unrecorded";
+      void api("/api/policy-acceptances", {
+        method: "POST",
+        body: JSON.stringify({
+          email: payerEmail,
+          name: payerName,
+          userId: user?.id || null,
+          planId: tier.id,
+          planName: `${track.eyebrow} · ${tier.name}`,
+          track: activeTrack,
+          termsAccepted: true,
+          refundAccepted: true,
+          privacyAcknowledged: true,
+          policyVersion: POLICY_VERSION,
+        }),
+      }).catch(() => null);
       await payForPlan(tier.id, {
         name: payerName,
         email: payerEmail,
-        description: `${description} · terms ${POLICY_VERSION} · accept ${acceptanceId}`,
+        description: `${description} · terms ${POLICY_VERSION}`,
       });
       setNotice({
         type: "ok",
-        text: `Payment confirmed for ${tier.name}. Terms acceptance saved (${acceptanceId}). Join the mentors WhatsApp group below.`,
+        text: `Payment confirmed for ${tier.name}. Join the mentors WhatsApp group below.`,
       });
       setCurrentMentorship(`${track.eyebrow.split("·")[0].trim()} · ${tier.name}`);
       setShowWhatsAppJoin(true);
@@ -849,7 +845,7 @@ export default function SubscriptionPage() {
             className={`h-12 text-sm disabled:opacity-60 ${index === 1 ? "btn-primary" : "btn-ghost"}`}
           >
             {payingId === tier.id
-              ? "Redirecting to Razorpay…"
+              ? "Opening payment…"
               : !acceptedTerms
                 ? `Accept terms to enroll · ${tier.priceLabel}`
                 : `Enroll in ${tier.name} · ${tier.priceLabel}`}

@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
 import { CHAPTERS } from "@/data/mockCurriculum";
 import { listDeskContents } from "@/lib/desk-contents";
 import { chapterRecord, facultySlug } from "@/lib/faculty-catalog";
 import { curriculumChapters, filterDesk, mergeCatalogRows } from "@/lib/desk-catalog";
-import { proxyLiveJson } from "@/lib/live-api";
+import { catalogResponse, proxyLiveJson } from "@/lib/live-api";
+
+export const revalidate = 30;
 
 type Ctx = { params: Promise<{ slug: string; classLevel: string }> };
 
@@ -43,5 +44,5 @@ export async function GET(req: Request, ctx: Ctx) {
     });
   }
   const chapters = mergeCatalogRows([...(live?.chapters || []), ...uploadedMerged.values()], seeded);
-  return NextResponse.json({ chapters });
+  return catalogResponse({ chapters }, 30);
 }

@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
 import { listDeskContents } from "@/lib/desk-contents";
 import { curriculumExams, deskFileUrl, deskOpenHref, filterDesk } from "@/lib/desk-catalog";
-import { proxyLiveJson } from "@/lib/live-api";
+import { catalogResponse, proxyLiveJson } from "@/lib/live-api";
+
+export const revalidate = 30;
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -41,5 +42,5 @@ export async function GET(req: Request) {
   const merged = [...extra, ...exams];
   const seen = new Set(merged.map((item) => String((item as { id?: string }).id || "")));
   const seeded = mock.filter((item) => !seen.has(item.id));
-  return NextResponse.json({ exams: [...merged, ...seeded], desk });
+  return catalogResponse({ exams: [...merged, ...seeded], desk }, 30);
 }

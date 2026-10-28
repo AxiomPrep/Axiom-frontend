@@ -3,7 +3,9 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiClientError } from "@/lib/api";
+import { PageLoader } from "@/components/BrandLoader";
 import { ApiStatus, Breadcrumbs, PageHeader, Pill, Shell } from "@/components/ui";
+import { markNavigating } from "@/lib/nav-progress";
 
 const FILTERS = [
   ["all", "All exams"],
@@ -59,6 +61,7 @@ function PYQBankContent() {
   const [selectedClass, setSelectedClass] = useState<"11" | "12" | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [examTypeFilter, setExamTypeFilter] = useState<(typeof FILTERS)[number][0]>("all");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     void api<{ subjects?: Array<Record<string, unknown>> }>("/catalog/pyq/subjects")
@@ -67,9 +70,9 @@ function PYQBankContent() {
           id: String(subject.slug || subject.id || ""),
           slug: String(subject.slug || subject.id || ""),
           name: String(subject.name || "Subject"),
-          totalQuestions: num(subject.total_questions ?? subject.question_count),
-          class11Count: num(subject.class_11_count),
-          class12Count: num(subject.class_12_count),
+          totalQuestions: num(subject.total_questions ?? subject.question_count ?? subject.pyq_count ?? subject.questions),
+          class11Count: num(subject.class_11_count ?? subject.class_11_chapters),
+          class12Count: num(subject.class_12_count ?? subject.class_12_chapters),
         }));
         setSubjects(next);
         if (next[0]) setSelectedSubjectId(next[0].slug);
@@ -81,7 +84,8 @@ function PYQBankContent() {
             ? err
             : new ApiClientError(500, "error", err instanceof Error ? err.message : "Could not load PYQs."),
         );
-      });
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const currentSubject = subjects.find((s) => s.id === selectedSubjectId) || subjects[0];
@@ -158,6 +162,7 @@ function PYQBankContent() {
   });
 
   const startExam = (set: PyqExam) => {
+    markNavigating();
     if (set.href) {
       router.push(set.href);
       return;
@@ -166,12 +171,17 @@ function PYQBankContent() {
   };
 
   const openReader = (set: PyqExam) => {
+    markNavigating();
     if (set.href) {
       router.push(set.href);
       return;
     }
     router.push(`/reader?type=pyq&set=${set.id}`);
   };
+
+  if (loading) {
+    return <PageLoader label="Loading PYQs" />;
+  }
 
   return (
     <Shell>
@@ -325,13 +335,7 @@ function PYQBankContent() {
 
 export default function PYQBankPage() {
   return (
-    <Suspense
-      fallback={
-        <Shell>
-          <p className="text-sm text-muted">Loading PYQ bank…</p>
-        </Shell>
-      }
-    >
+    <Suspense fallback={<PageLoader label="Loading PYQs" />}>
       <PYQBankContent />
     </Suspense>
   );

@@ -19,8 +19,9 @@ export function Logo({ variant = "mark", className = "", priority }: LogoProps) 
       <Image
         src="/logo.png"
         alt={variant === "full" ? "Axiom Prep — Explore. Question. Understand." : "Axiom Prep"}
-        width={720}
-        height={720}
+        width={variant === "full" ? 288 : 56}
+        height={variant === "full" ? 288 : 56}
+        sizes={variant === "full" ? "18rem" : "3.5rem"}
         priority={priority}
         className="h-full w-full object-contain p-[6%]"
       />

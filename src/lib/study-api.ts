@@ -652,15 +652,21 @@ export async function payForPlan(
   planId: string,
   options?: { name?: string; email?: string; description?: string },
 ): Promise<{ ok: boolean }> {
-  const checkout = await createCheckout(planId)
-  if (checkout.checkoutUrl) {
+  const [checkout, Razorpay] = await Promise.all([createCheckout(planId), loadRazorpay().catch(() => null)])
+  if (checkout.checkoutUrl && !checkout.orderId.startsWith('order_')) {
     window.location.assign(checkout.checkoutUrl)
     return new Promise(() => {})
   }
   if (!checkout.orderId || !checkout.key) {
     throw new Error('Payment order was not created. Sign in and try again.')
   }
-  const Razorpay = await loadRazorpay()
+  if (!Razorpay) {
+    if (checkout.checkoutUrl) {
+      window.location.assign(checkout.checkoutUrl)
+      return new Promise(() => {})
+    }
+    throw new Error('Could not load Razorpay.')
+  }
   return new Promise((resolve, reject) => {
     let settled = false
     const finish = (fn: () => void) => {
@@ -677,7 +683,7 @@ export async function payForPlan(
           ),
         ),
       )
-    }, 20000)
+    }, 8000)
 
     const rz = new Razorpay({
       key: checkout.key.trim(),

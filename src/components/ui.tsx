@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { BrandLoader } from "@/components/BrandLoader";
 import { ApiClientError, isUnauthorized } from "@/lib/api";
 import Link from "next/link";
 
@@ -78,11 +79,8 @@ export function Pill({
 
 export function LoadingBlock({ label = "Loading…" }: { label?: string }) {
   return (
-    <div className="surface rounded-2xl px-6 py-16 text-center">
-      <div className="mx-auto mb-4 h-1.5 w-28 overflow-hidden rounded-full bg-white/10">
-        <div className="h-full w-1/2 rounded-full bg-axiom/80" style={{ animation: "shimmer 1.2s infinite" }} />
-      </div>
-      <p className="text-sm text-zinc-500">{label}</p>
+    <div className="surface rounded-2xl px-6 py-8">
+      <BrandLoader size="mark" label={label} />
     </div>
   );
 }
