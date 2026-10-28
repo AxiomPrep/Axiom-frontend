@@ -1,4 +1,5 @@
 import { getAccessToken } from "@/lib/session";
+import { getApiOrigin } from "@/lib/api-origin";
 
 export class ApiClientError extends Error {
   status: number;
@@ -11,7 +12,7 @@ export class ApiClientError extends Error {
   }
 }
 
-const LIVE_API = process.env.NEXT_PUBLIC_API_ORIGIN || "https://axiom-backend-dwlc.onrender.com";
+const LIVE_API = getApiOrigin();
 
 function isLocalBffPath(path: string) {
   const clean = path.split("?")[0];
@@ -44,6 +45,10 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getAccessToken();
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
+  }
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (anon && LIVE_API.includes("supabase.co") && !headers.has("apikey")) {
+    headers.set("apikey", anon);
   }
   if (!token && path.startsWith("/api/") && !isPublicApiPath(path)) {
     throw new ApiClientError(401, "unauthorized", "Authentication required");

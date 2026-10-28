@@ -1,7 +1,8 @@
 import { mapLiveContent, type AdminContent } from "@/lib/admin";
 import { isHiddenContent, listHiddenAdminIds, listHiddenAdminKeys } from "@/lib/admin-store";
+import { getApiOrigin } from "@/lib/api-origin";
 
-const API_ORIGIN = process.env.API_ORIGIN || "https://axiom-backend-dwlc.onrender.com";
+const API_ORIGIN = getApiOrigin();
 
 function seedAdminEmail() {
   return (process.env.ADMIN_SEED_EMAILS || "admin@axiomprep.com").split(",")[0].trim().toLowerCase();

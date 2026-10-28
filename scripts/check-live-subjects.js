@@ -1,4 +1,4 @@
-const API = process.env.API_ORIGIN || "https://axiom-backend-dwlc.onrender.com";
+const API = process.env.API_ORIGIN || "https://afkjjeskssmtnzvmnkoe.supabase.co/functions/v1";
 
 (async () => {
   const res = await fetch(`${API}/api/admin/contents`, {

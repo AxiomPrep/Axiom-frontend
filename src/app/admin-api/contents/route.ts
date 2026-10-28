@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { findSeededAdmin } from "@/data/admin-seed";
 import type { AdminContent } from "@/lib/admin";
+import { getApiOrigin } from "@/lib/api-origin";
 import { inferToolKind } from "@/lib/catalog";
 import { findDestination, findSlot, isYoutubeUrl } from "@/lib/admin-destinations";
 import {
@@ -23,7 +24,7 @@ function safeUploadName(name: string) {
   return `${cleaned.replace(/\.[^.]+$/, "") || "upload"}.pdf`;
 }
 
-const API_ORIGIN = process.env.API_ORIGIN || "https://axiom-backend-dwlc.onrender.com";
+const API_ORIGIN = getApiOrigin();
 
 function readAdminEmail(req: Request) {
   const header = req.headers.get("x-admin-email") || "";

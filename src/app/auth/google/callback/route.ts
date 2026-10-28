@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
     name: profile.name || profile.email.split("@")[0],
   };
 
-  const apiOrigin = process.env.API_ORIGIN || "https://axiom-backend-dwlc.onrender.com";
+  const apiOrigin = process.env.API_ORIGIN || process.env.NEXT_PUBLIC_API_ORIGIN || "https://afkjjeskssmtnzvmnkoe.supabase.co/functions/v1";
   const bodies = [
     {
       access_token: tokens.access_token,

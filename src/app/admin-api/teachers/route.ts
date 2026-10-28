@@ -4,7 +4,9 @@ import { SEEDED_TEACHERS, mergeFacultyLists, type AdminTeacher } from "@/data/ad
 import { mapLiveContent } from "@/lib/admin";
 import { teachersFromUploads } from "@/lib/faculty-catalog";
 
-const API_ORIGIN = process.env.API_ORIGIN || "https://axiom-backend-dwlc.onrender.com";
+import { getApiOrigin } from "@/lib/api-origin";
+
+const API_ORIGIN = getApiOrigin();
 const SUBJECTS = new Set(["physics", "chemistry", "mathematics", "biology"]);
 
 function readAdminEmail(req: Request) {

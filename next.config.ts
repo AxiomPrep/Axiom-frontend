@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-const API_ORIGIN = process.env.API_ORIGIN || "https://axiom-backend-dwlc.onrender.com";
+const API_ORIGIN = process.env.API_ORIGIN || process.env.NEXT_PUBLIC_API_ORIGIN || "https://afkjjeskssmtnzvmnkoe.supabase.co/functions/v1";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,

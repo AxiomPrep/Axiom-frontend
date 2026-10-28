@@ -1,5 +1,6 @@
 import type { AdminSourceKind } from "@/lib/admin-destinations";
 import { inferToolKind } from "@/lib/catalog";
+import { getApiOrigin } from "@/lib/api-origin";
 
 export type AdminSession = {
   email: string;
@@ -52,8 +53,7 @@ export type AdminContent = {
   extracted_questions?: ExtractedQuestion[] | null;
 };
 
-const LIVE_API =
-  process.env.NEXT_PUBLIC_API_ORIGIN || process.env.API_ORIGIN || "https://axiom-backend-dwlc.onrender.com";
+const LIVE_API = getApiOrigin();
 
 export function mapLiveContent(row: Record<string, unknown>, adminEmail = "admin"): AdminContent {
   const description = typeof row.description === "string" ? row.description : null;

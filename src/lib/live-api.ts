@@ -1,4 +1,6 @@
-const API_ORIGIN = process.env.API_ORIGIN || "https://axiom-backend-dwlc.onrender.com";
+import { getApiOrigin } from "@/lib/api-origin";
+
+const API_ORIGIN = getApiOrigin();
 
 export async function proxyLiveJson<T>(
   req: Request,
@@ -11,13 +13,15 @@ export async function proxyLiveJson<T>(
   if (auth) headers.set("authorization", auth);
   if (cookie) headers.set("cookie", cookie);
   if (init?.body !== undefined) headers.set("content-type", "application/json");
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (anon && API_ORIGIN.includes("supabase.co")) headers.set("apikey", anon);
   try {
     const res = await fetch(`${API_ORIGIN}${path}`, {
       method: init?.method || "GET",
       headers,
       body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
       cache: "no-store",
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(25000),
     });
     if (!res.ok) return null;
     return (await res.json()) as T;

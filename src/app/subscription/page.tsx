@@ -484,7 +484,7 @@ export default function SubscriptionPage() {
     const payerName = user?.name || fullName || payerEmail;
     try {
       const recorded = await api<{ acceptance?: { id: string; acceptedAt?: string } }>(
-        "/catalog/policy-acceptances",
+        "/api/policy-acceptances",
         {
           method: "POST",
           body: JSON.stringify({
