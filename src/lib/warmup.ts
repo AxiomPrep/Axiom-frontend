@@ -13,6 +13,7 @@ export function warmupLiveApi() {
     headers: origin.includes("supabase.co") ? { apikey: SUPABASE_ANON_KEY } : undefined,
   }).catch(() => {});
   if (!hasAccessToken()) return;
+  void api("/api/mentors").catch(() => {});
   void api("/api/practice/subjects").catch(() => {});
   void api("/api/pyq/subjects").catch(() => {});
   void api("/api/plans").catch(() => {});

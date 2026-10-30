@@ -4,6 +4,7 @@ const inflight = new Map<string, Promise<unknown>>();
 function ttlFor(path: string) {
   const clean = path.split("?")[0];
   if (clean.startsWith("/catalog/") || clean.startsWith("/api/practice/") || clean.startsWith("/api/pyq/")) return 60_000;
+  if (clean === "/api/mentors") return 30_000;
   if (clean === "/api/me" || clean === "/api/student/dashboard" || clean === "/api/mentorship") return 20_000;
   if (clean === "/api/plans" || clean === "/api/timer") return 12_000;
   return 8_000;
@@ -52,5 +53,6 @@ export function shouldCacheRequest(path: string, method: string) {
   if (method.toUpperCase() !== "GET") return false;
   const clean = path.split("?")[0];
   if (clean.startsWith("/api/auth/")) return false;
+  if (clean.startsWith("/api/chat/") || clean.startsWith("/api/notifications")) return false;
   return clean.startsWith("/api/") || clean.startsWith("/catalog/");
 }
