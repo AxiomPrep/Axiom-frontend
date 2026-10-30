@@ -21,6 +21,10 @@ function isOpenApiPath(pathname: string) {
 export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
+  if (pathname === "/" || pathname === "") {
+    return NextResponse.redirect(new URL("/mentors", req.url));
+  }
+
   if (pathname.startsWith("/catalog/")) {
     return NextResponse.next();
   }

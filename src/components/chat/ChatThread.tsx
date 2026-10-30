@@ -50,7 +50,6 @@ export function ChatThread({
   }
 
   useEffect(() => {
-    let stop = () => undefined;
     let alive = true;
     async function boot() {
       setLoading(true);
@@ -85,18 +84,18 @@ export function ChatThread({
       }
     }
     void boot();
-    stop = subscribeConversation(conversationId, (incoming) => {
+    const unsubscribe = subscribeConversation(conversationId, (incoming) => {
       merge(incoming);
       if (incoming.sender_id !== me) {
-        pingBrowserNotification(title || "Axiom Prep", incoming.content || "New message");
+        pingBrowserNotification("Axiom Prep", incoming.content || "New message");
         void markConversationRead(conversationId);
       }
     });
     return () => {
       alive = false;
-      stop();
+      unsubscribe();
     };
-  }, [conversationId, me, title]);
+  }, [conversationId, me]);
 
   useEffect(() => {
     const node = scroller.current;

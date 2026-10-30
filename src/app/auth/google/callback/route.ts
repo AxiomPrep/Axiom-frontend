@@ -35,7 +35,7 @@ async function verifyToken(apiOrigin: string, token: string) {
 function loginReturnPath(request: NextRequest, query: string) {
   const next = safeNextPath(request.cookies.get("axiom_google_oauth_next")?.value || null);
   const params = new URLSearchParams(query);
-  if (next && next !== "/practice") params.set("next", next);
+  if (next && next !== "/mentors") params.set("next", next);
   const qs = params.toString();
   return `/login?${qs}`;
 }

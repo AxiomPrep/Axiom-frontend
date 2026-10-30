@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ChatNotifyListener } from "@/components/ChatNotifyListener";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { onAuthChange, refreshSession, signOut, type AxiomUser } from "@/lib/auth";
@@ -111,6 +112,7 @@ export function Navbar() {
               </div>
             ) : null}
           </div>
+          <ChatNotifyListener />
           <ThemeToggle />
           {user ? (
             <button type="button" onClick={() => void signOut()} className="btn-ghost h-9 px-4 text-sm">

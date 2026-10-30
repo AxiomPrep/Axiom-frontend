@@ -19,7 +19,10 @@ const nextConfig: NextConfig = {
     return config;
   },
   async redirects() {
-    return [{ source: "/mentorship", destination: "/subscription", permanent: false }];
+    return [
+      { source: "/", destination: "/mentors", permanent: false },
+      { source: "/mentorship", destination: "/subscription", permanent: false },
+    ];
   },
   async rewrites() {
     return [

@@ -7,6 +7,7 @@ import { PageHeader, Shell } from "@/components/ui";
 import { PageLoader } from "@/components/BrandLoader";
 import { listMentors, openMentorChat, type ChatAccess, type MentorCard } from "@/lib/chat-api";
 import { ApiClientError } from "@/lib/api";
+import { getAccessToken } from "@/lib/session";
 
 export default function MentorsPage() {
   const router = useRouter();
@@ -38,6 +39,11 @@ export default function MentorsPage() {
   }, []);
 
   async function openChat(mentor: MentorCard, kind: "direct" | "community") {
+    if (!getAccessToken()) {
+      const next = kind === "direct" ? `/mentors/${mentor.slug || mentor.id}/chat` : "/mentors";
+      router.push(`/login?next=${encodeURIComponent(next)}`);
+      return;
+    }
     if (!mentor.allowed) {
       router.push("/subscription");
       return;

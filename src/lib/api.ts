@@ -50,6 +50,7 @@ function isPublicApiPath(path: string) {
   const clean = path.split("?")[0];
   return (
     clean === "/api/plans" ||
+    clean === "/api/mentors" ||
     clean.startsWith("/api/auth/") ||
     clean === "/api/signup" ||
     clean === "/api/signin" ||

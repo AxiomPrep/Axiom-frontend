@@ -134,7 +134,7 @@ export default function LoginPage() {
 
   const handleGoogle = () => {
     const next = safeNextPath(new URLSearchParams(window.location.search).get("next"));
-    const qs = next && next !== "/practice" ? `?next=${encodeURIComponent(next)}` : "";
+    const qs = next && next !== "/mentors" ? `?next=${encodeURIComponent(next)}` : "";
     window.location.assign(`/auth/google${qs}`);
   };
 
@@ -188,8 +188,8 @@ export default function LoginPage() {
             <h1 className="mt-2 font-display text-3xl font-semibold text-ink">Welcome, {user.name}</h1>
             <p className="mt-2 text-sm text-muted">{user.email}</p>
             <div className="mt-6 flex flex-col gap-3">
-              <Link href="/practice" className="btn-primary h-11 text-sm">
-                Continue to practice
+              <Link href="/mentors" className="btn-primary h-11 text-sm">
+                Continue to chat
               </Link>
               <button type="button" onClick={() => signOut()} className="btn-ghost h-11 text-sm">
                 Sign out
