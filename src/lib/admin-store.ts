@@ -9,14 +9,6 @@ export function adminFilesDir() {
   return filesDir;
 }
 
-export async function saveAdminFile(id: string, originalName: string, bytes: Uint8Array) {
-  const ext = path.extname(originalName).replace(/[^\w.]/g, "").slice(0, 8) || "";
-  const safe = `${id}${ext || ""}`;
-  await mkdir(filesDir, { recursive: true });
-  await writeFile(path.join(filesDir, safe), bytes);
-  return { storedName: safe, publicPath: `/admin-api/files/${encodeURIComponent(safe)}` };
-}
-
 async function readAll(): Promise<AdminContent[]> {
   try {
     const raw = await readFile(filePath, "utf8");
@@ -32,20 +24,9 @@ async function writeAll(contents: AdminContent[]) {
   await writeFile(filePath, JSON.stringify({ contents }, null, 2), "utf8");
 }
 
-export async function listStoredAdminContents() {
-  return readAll();
-}
-
 export async function findStoredAdminContent(id: string) {
   const contents = await readAll();
   return contents.find((item) => item.id === id || item.live_id === id) || null;
-}
-
-export async function saveAdminContent(content: AdminContent) {
-  const contents = await readAll();
-  contents.unshift(content);
-  await writeAll(contents);
-  return content;
 }
 
 export function contentHideKey(item: {
@@ -120,8 +101,6 @@ export async function removeStoredAdminContent(
   if (target?.id) ids.add(target.id);
   if (target?.live_id) ids.add(target.live_id);
   const keys = new Set(hidden.keys);
-  const title = (match?.title || target?.title || "").trim().toLowerCase().replace(/\s+/g, " ");
-  const dest = (match?.destination_id || target?.destination_id || "").trim().toLowerCase();
   if (key && !key.endsWith("||")) keys.add(key);
   await writeHidden({ ids: [...ids], keys: [...keys] });
   return { ok: true };

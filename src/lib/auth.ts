@@ -13,6 +13,8 @@ export interface AxiomUser {
   id: string
   email: string
   name: string
+  isMentor?: boolean
+  isAdmin?: boolean
 }
 
 const SESSION_KEY = 'axiom_auth_session'
@@ -40,18 +42,6 @@ function emit(user: AxiomUser | null) {
 function clearLocalSession() {
   clearAccessToken()
   if (typeof window !== 'undefined') window.localStorage.removeItem(SESSION_KEY)
-}
-
-/** Restore an existing session (runs once at startup on the client). */
-export function initAuth(): AxiomUser | null {
-  if (currentUser) return currentUser
-  if (!getAccessToken()) {
-    currentUser = null
-    return null
-  }
-  const user = readStoredSession()
-  currentUser = user
-  return user
 }
 
 export function getCurrentUser(): AxiomUser | null {
@@ -99,7 +89,9 @@ export function mapProfile(raw: unknown): AxiomUser {
     profile.full_name || profile.name || root.full_name || root.name || email.split('@')[0] || 'Student'
   )
   const id = String(profile.id || root.id || email || 'student')
-  return { id, email, name }
+  const isAdmin = root.is_admin === true || profile.role === 'admin'
+  const isMentor = !isAdmin && (root.is_mentor === true || profile.role === 'teacher')
+  return { id, email, name, isMentor, isAdmin }
 }
 
 async function postFirst(paths: string[], body: Record<string, unknown>) {
@@ -130,6 +122,8 @@ async function establishSession(payload: Record<string, unknown>, fallback: { em
     id: user.id || fallback.email,
     email: user.email || fallback.email,
     name: user.name || fallback.name,
+    isMentor: user.isMentor,
+    isAdmin: user.isAdmin,
   })
   return getCurrentUser() as AxiomUser
 }
@@ -257,12 +251,4 @@ function persistAndEmit(user: AxiomUser) {
     window.localStorage.setItem(SESSION_KEY, JSON.stringify(user))
   }
   emit(user)
-}
-
-/**
- * Subscribe to live Supabase auth changes when configured; otherwise the
- * in-memory listeners already cover the local fallback.
- */
-export function bindSupabaseAuthEvents(): () => void {
-  return () => {}
 }

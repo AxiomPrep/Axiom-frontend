@@ -10,11 +10,13 @@ import { pingBrowserNotification, subscribeNotifications } from "@/lib/chat-real
 export function ChatNotifyListener() {
   const pathname = usePathname();
   const [userId, setUserId] = useState<string | null>(null);
+  const [isMentor, setIsMentor] = useState(false);
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
     return onAuthChange((user) => {
       setUserId(user?.id || null);
+      setIsMentor(Boolean(user?.isMentor));
     });
   }, []);
 
@@ -31,7 +33,7 @@ export function ChatNotifyListener() {
         const notices = await listNotifications();
         if (!cancelled) setUnread(notices.unread_count || 0);
       } catch {
-        // Ignore notification refresh errors.
+        /* ignore */
       }
     }
 
@@ -62,7 +64,8 @@ export function ChatNotifyListener() {
 
   if (!userId) return null;
 
-  const href = pathname.startsWith("/mentor-inbox") ? "/mentor-inbox" : "/mentors";
+  const href =
+    isMentor || pathname === "/mentor" || pathname.startsWith("/mentor-inbox") ? "/mentor" : "/mentors";
 
   return (
     <Link

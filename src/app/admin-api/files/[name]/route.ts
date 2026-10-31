@@ -1,7 +1,7 @@
 import { readFile } from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
-import { findSeededAdmin } from "@/data/admin-seed";
+import { requireRequestAdmin } from "@/lib/admin-request";
 import { adminFilesDir } from "@/lib/admin-store";
 
 function contentTypeFor(name: string) {
@@ -19,11 +19,8 @@ function contentTypeFor(name: string) {
 }
 
 export async function GET(req: Request, ctx: { params: Promise<{ name: string }> }) {
-  const cookie = req.headers.get("cookie")?.match(/(?:^|;\s*)axiom_admin_email=([^;]+)/)?.[1] || "";
-  const admin = findSeededAdmin(decodeURIComponent(cookie));
-  if (!admin) {
-    return NextResponse.json({ error: "forbidden", message: "Admin seed access required." }, { status: 403 });
-  }
+  const { error } = await requireRequestAdmin(req);
+  if (error) return error;
 
   const { name } = await ctx.params;
   const safe = path.basename(decodeURIComponent(name || ""));

@@ -1,6 +1,6 @@
 /**
- * Admin access is granted only by this list (plus optional ADMIN_SEED_EMAILS).
- * Student signup / login cannot create an admin session.
+ * Issued admin address. Sign-in is the normal email and password screen.
+ * The admin role on that account opens the admin screen.
  */
 export const SEEDED_ADMINS = [
   { email: "admin@axiomprep.com", name: "Axiom Prep Admin" },

@@ -315,7 +315,6 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
 ];
 
 export const VIDEO_MODULE_KEYS = ["lectures", "problem_solving", "pyqs_solving", "one_shots", "revision"] as const;
-export const PDF_MODULE_KEYS = ["notes_pdf", "important_pdfs"] as const;
 
 export function isVideoTeacherModule(moduleKey: string) {
   return (VIDEO_MODULE_KEYS as readonly string[]).includes(moduleKey);

@@ -1,6 +1,7 @@
 import type { AdminSourceKind } from "@/lib/admin-destinations";
 import { inferToolKind } from "@/lib/catalog";
-import { getApiOrigin } from "@/lib/api-origin";
+import { getApiOrigin, SUPABASE_ANON_KEY } from "@/lib/api-origin";
+import { getAccessToken } from "@/lib/session";
 
 export type AdminSession = {
   email: string;
@@ -138,9 +139,12 @@ async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-async function liveAdminFetch<T>(path: string, email: string, init?: RequestInit): Promise<T> {
+async function liveAdminFetch<T>(path: string, _email: string, init?: RequestInit): Promise<T> {
+  const token = getAccessToken();
+  if (!token) throw new Error("Sign in with the admin account.");
   const headers = new Headers(init?.headers);
-  headers.set("x-admin-email", email);
+  headers.set("Authorization", `Bearer ${token}`);
+  headers.set("apikey", SUPABASE_ANON_KEY);
   if (init?.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
@@ -167,7 +171,7 @@ async function liveAdminFetch<T>(path: string, email: string, init?: RequestInit
     if (init?.body instanceof FormData) throw err;
     const status = err && typeof err === "object" && "status" in err ? Number(err.status) : 0;
     if (path.split("?")[0] !== "/api/admin/contents" || (status >= 400 && status < 500)) throw err;
-    const retryHeaders: Record<string, string> = { "x-admin-email": email };
+    const retryHeaders: Record<string, string> = { Authorization: `Bearer ${token}` };
     if (!(init?.body instanceof FormData)) retryHeaders["Content-Type"] = "application/json";
     return adminFetch<T>("/admin-api/contents", { ...init, headers: retryHeaders });
   }
@@ -188,7 +192,7 @@ export function clearAdminSession() {
   return adminFetch<{ ok: true }>("/admin-api/access", { method: "DELETE" });
 }
 
-export async function listAdminContents(_email: string) {
+export async function listAdminContents() {
   const payload = await adminFetch<{ contents?: AdminContent[] }>("/admin-api/contents");
   return { contents: payload.contents || [] };
 }
@@ -207,6 +211,80 @@ export function createAdminTeacher(name: string, subject: string) {
       body: JSON.stringify({ name, subject }),
     },
   );
+}
+
+export type FinancePlan = {
+  plan_id: string | null;
+  name: string;
+  buyers: number;
+  payments: number;
+  revenue_paise: number;
+};
+
+export type FinancePayment = {
+  id: string;
+  student_name: string;
+  email: string;
+  plan_name: string;
+  amount_paise: number;
+  created_at: string;
+};
+
+export type FinanceReport = {
+  students: number;
+  visitors: number;
+  visitors_7d: number;
+  purchases: number;
+  buyers: number;
+  revenue_paise: number;
+  plans: FinancePlan[];
+  payments: FinancePayment[];
+};
+
+export type AdminMentorAccount = {
+  id: string;
+  full_name: string;
+  institute: string | null;
+  exam_track: string;
+  required_tier: string;
+  is_active: boolean;
+  email: string | null;
+  role: string | null;
+  has_login: boolean;
+};
+
+export function fetchAdminFinance(email: string) {
+  return liveAdminFetch<FinanceReport>("/api/admin/finance", email);
+}
+
+export function listAdminMentorAccounts(email: string) {
+  return liveAdminFetch<{ mentors: AdminMentorAccount[] }>("/api/admin/mentors", email);
+}
+
+export function createAdminMentorAccount(
+  email: string,
+  body: {
+    full_name: string;
+    email: string;
+    password: string;
+    institute: string;
+    exam_track: "jee" | "neet" | "both";
+    required_tier: "a" | "b";
+    existing: boolean;
+    mentor_profile_id?: string | null;
+  },
+) {
+  return liveAdminFetch<{
+    mentor_id: string;
+    email: string;
+    full_name: string;
+    role: string;
+    permanent: boolean;
+    password: string;
+  }>("/api/admin/mentors", email, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export function deleteAdminContent(

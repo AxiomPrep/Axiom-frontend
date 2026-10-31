@@ -12,7 +12,6 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
   },
-  serverExternalPackages: ["xlsx"],
   transpilePackages: ["pdfjs-dist"],
   webpack: (config) => {
     config.resolve.alias.canvas = false;

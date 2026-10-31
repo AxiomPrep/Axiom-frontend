@@ -1,18 +1,18 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
-  clearAdminSession,
   createAdminContent,
   createAdminTeacher,
   deleteAdminContent,
   listAdminContents,
   listAdminTeachers,
-  readAdminSession,
-  requestAdminAccess,
   type AdminContent,
   type AdminSession,
 } from "@/lib/admin";
+import { refreshSession, signOut } from "@/lib/auth";
 import {
   ADMIN_DESTINATIONS,
   CLASS_OPTIONS,
@@ -35,17 +35,18 @@ import {
 } from "@/lib/admin-destinations";
 import { mergeFacultyLists, SEEDED_TEACHERS, teachersForSubject, type AdminTeacher } from "@/data/admin-teachers";
 import { facultySlug, teachersFromUploads } from "@/lib/faculty-catalog";
+import { FinanceDesk } from "@/components/admin/FinanceDesk";
+import { MentorDesk } from "@/components/admin/MentorDesk";
 import { Logo } from "@/components/Logo";
 
 const fieldClass =
   "relative z-20 mt-2 h-11 w-full rounded-xl border border-line bg-[color:var(--bg)] px-3 text-sm text-ink focus:border-axiom focus:outline-none";
 
 export default function AdminPage() {
+  const router = useRouter();
   const [ready, setReady] = useState(false);
+  const [elsewhere, setElsewhere] = useState("/mentors");
   const [session, setSession] = useState<AdminSession | null>(null);
-  const [email, setEmail] = useState("");
-  const [gateError, setGateError] = useState<string | null>(null);
-  const [gateLoading, setGateLoading] = useState(false);
   const [contents, setContents] = useState<AdminContent[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +79,7 @@ export default function AdminPage() {
   const [preview, setPreview] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [addingTeacher, setAddingTeacher] = useState(false);
+  const [desk, setDesk] = useState<"content" | "finance" | "mentors">("content");
 
   const chapterChoices = useMemo(() => chaptersFor(subject, classLevel), [subject, classLevel]);
   const teacherChoices = useMemo(() => teachersForSubject(teachers, subject), [teachers, subject]);
@@ -91,22 +93,33 @@ export default function AdminPage() {
 
   useEffect(() => {
     void (async () => {
+      let show = false;
       try {
-        const current = await readAdminSession();
-        if (current && "email" in current && current.email) {
-          setSession(current as AdminSession);
-          const listed = await listAdminContents(current.email).catch(() => ({ contents: [] as AdminContent[] }));
-          setContents(listed.contents);
-          const faculty = await listAdminTeachers().catch(() => ({ teachers: [] as AdminTeacher[] }));
-          setTeachers(mergeFacultyLists(SEEDED_TEACHERS, [...faculty.teachers, ...teachersFromUploads(listed.contents)]));
+        const user = await refreshSession(true);
+        if (!user) {
+          router.replace("/login?next=%2Fadmin");
+          return;
         }
+        if (!user.isAdmin) {
+          setElsewhere(user.isMentor ? "/mentor" : "/mentors");
+          show = true;
+          return;
+        }
+        const current = { email: user.email, name: user.name };
+        setSession(current);
+        const listed = await listAdminContents().catch(() => ({ contents: [] as AdminContent[] }));
+        setContents(listed.contents);
+        const faculty = await listAdminTeachers().catch(() => ({ teachers: [] as AdminTeacher[] }));
+        setTeachers(mergeFacultyLists(SEEDED_TEACHERS, [...faculty.teachers, ...teachersFromUploads(listed.contents)]));
+        show = true;
       } catch {
         setSession(null);
+        show = true;
       } finally {
-        setReady(true);
+        if (show) setReady(true);
       }
     })();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     setSlotId(destination.slots[0].id);
@@ -137,29 +150,9 @@ export default function AdminPage() {
     setFile(null);
   }, [moduleKey, destination.id]);
 
-  const unlock = async (e: FormEvent) => {
-    e.preventDefault();
-    setGateError(null);
-    setGateLoading(true);
-    try {
-      const next = await requestAdminAccess(email);
-      setSession(next);
-      const listed = await listAdminContents(next.email);
-      setContents(listed.contents);
-      const faculty = await listAdminTeachers().catch(() => ({ teachers: [] as AdminTeacher[] }));
-      setTeachers(mergeFacultyLists(SEEDED_TEACHERS, [...faculty.teachers, ...teachersFromUploads(listed.contents)]));
-    } catch (err) {
-      setGateError(err instanceof Error ? err.message : "This email is not seeded for admin access.");
-    } finally {
-      setGateLoading(false);
-    }
-  };
-
   const leave = async () => {
-    await clearAdminSession().catch(() => {});
-    setSession(null);
-    setEmail("");
-    setContents([]);
+    await signOut();
+    router.replace("/login");
   };
 
   const resolvedChapter =
@@ -273,7 +266,7 @@ export default function AdminPage() {
         destination_id: item.destination_id,
         file_name: item.file_name,
       });
-      const listed = session?.email ? await listAdminContents(session.email).catch(() => null) : null;
+      const listed = session?.email ? await listAdminContents().catch(() => null) : null;
       if (listed) setContents(listed.contents);
       else {
         const title = item.title.trim().toLowerCase();
@@ -294,42 +287,23 @@ export default function AdminPage() {
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-muted">Checking seeded admin access…</p>
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <p className="text-sm text-muted">Checking admin access…</p>
       </div>
     );
   }
 
   if (!session) {
     return (
-      <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-12">
-        <div className="mb-8 flex justify-center">
-          <Logo variant="mark" />
-        </div>
-        <p className="text-center font-display text-lg italic text-axiom">Seeded access only</p>
-        <h1 className="mt-2 text-center font-display text-3xl font-semibold text-ink">Admin desk</h1>
-        <p className="mt-3 text-center text-sm leading-relaxed text-muted">
-          Enter an email from the admin seed file. Student signup and login cannot open this screen.
+      <div className="mx-auto flex min-h-[50vh] max-w-md flex-col justify-center px-4 py-12 text-center">
+        <p className="font-display text-lg italic text-axiom">Admin role</p>
+        <h1 className="mt-2 font-display text-3xl font-semibold text-ink">This account cannot open admin</h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted">
+          Sign in with the admin email and password. A student or mentor login stays on its own screen.
         </p>
-        <form onSubmit={unlock} className="surface mt-8 rounded-2xl p-6">
-          {gateError ? (
-            <p className="mb-4 rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-200">{gateError}</p>
-          ) : null}
-          <label className="block text-sm">
-            <span className="mb-1.5 block text-xs uppercase tracking-[0.14em] text-muted">Seeded admin email</span>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@axiomprep.com"
-              className="h-11 w-full rounded-xl border border-line bg-[color:var(--bg)] px-3 text-sm text-ink placeholder:text-zinc-500 focus:border-axiom focus:outline-none"
-            />
-          </label>
-          <button type="submit" disabled={gateLoading} className="btn-primary mt-5 h-11 w-full text-sm disabled:opacity-60">
-            {gateLoading ? "Checking seed…" : "Enter admin"}
-          </button>
-        </form>
+        <Link href={elsewhere} className="btn-primary mx-auto mt-6 h-11 px-6 text-sm">
+          Back
+        </Link>
       </div>
     );
   }
@@ -345,11 +319,32 @@ export default function AdminPage() {
           </div>
         </div>
         <button type="button" onClick={() => void leave()} className="btn-ghost h-10 px-4 text-sm">
-          Leave admin
+          Log out
         </button>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+      <div className="mb-6 flex flex-wrap gap-2">
+        {(
+          [
+            ["content", "Content"],
+            ["finance", "Finance"],
+            ["mentors", "Mentors"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setDesk(id)}
+            className={`h-10 rounded-full px-4 text-sm ${desk === id ? "bg-axiom text-black" : "border border-line text-muted"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {desk === "finance" ? <FinanceDesk email={session.email} /> : null}
+      {desk === "mentors" ? <MentorDesk email={session.email} /> : null}
+      {desk === "content" ? <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
         <form onSubmit={publish} className="surface rounded-2xl p-6">
           <h2 className="font-display text-2xl font-semibold text-ink">Where should this go?</h2>
           <p className="mt-2 text-sm text-muted">Pick the student page first. The form then shows only what that page needs.</p>
@@ -581,7 +576,7 @@ export default function AdminPage() {
             </ul>
           )}
         </section>
-      </div>
+      </div> : null}
     </div>
   );
 }

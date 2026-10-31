@@ -1,4 +1,3 @@
-/** Flip to false to hide the floating science signs. */
 export const AMBIENT_FIELD_ENABLED = true;
 
 const SYMBOLS = [

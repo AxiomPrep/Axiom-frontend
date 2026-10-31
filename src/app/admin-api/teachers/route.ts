@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { findSeededAdmin } from "@/data/admin-seed";
 import { SEEDED_TEACHERS, mergeFacultyLists, type AdminTeacher } from "@/data/admin-teachers";
 import { mapLiveContent } from "@/lib/admin";
+import { adminLiveHeaders, requireRequestAdmin } from "@/lib/admin-request";
 import { teachersFromUploads } from "@/lib/faculty-catalog";
 
 import { getApiOrigin } from "@/lib/api-origin";
@@ -9,21 +9,8 @@ import { getApiOrigin } from "@/lib/api-origin";
 const API_ORIGIN = getApiOrigin();
 const SUBJECTS = new Set(["physics", "chemistry", "mathematics", "biology"]);
 
-function readAdminEmail(req: Request) {
-  const header = req.headers.get("x-admin-email") || "";
-  const cookie = req.headers.get("cookie")?.match(/(?:^|;\s*)axiom_admin_email=([^;]+)/)?.[1] || "";
-  return decodeURIComponent(header || cookie);
-}
-
 function requireAdmin(req: Request) {
-  const admin = findSeededAdmin(readAdminEmail(req));
-  if (!admin) {
-    return {
-      admin: null,
-      error: NextResponse.json({ error: "forbidden", message: "Admin seed access required." }, { status: 403 }),
-    };
-  }
-  return { admin, error: null };
+  return requireRequestAdmin(req);
 }
 
 function slug(value: string) {
@@ -55,11 +42,10 @@ function fromLiveRow(row: Record<string, unknown>): AdminTeacher | null {
   };
 }
 
-async function fetchLiveJson<T>(path: string, email: string, init?: RequestInit): Promise<T | null> {
+async function fetchLiveJson<T>(path: string, token: string, init?: RequestInit): Promise<T | null> {
   try {
-    const headers = new Headers(init?.headers);
-    headers.set("x-admin-email", email);
-    if (init?.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+    const headers = adminLiveHeaders(token, Boolean(init?.body));
+    init?.headers && new Headers(init.headers).forEach((value, key) => headers.set(key, value));
     const res = await fetch(`${API_ORIGIN}${path}`, {
       ...init,
       headers,
@@ -73,29 +59,29 @@ async function fetchLiveJson<T>(path: string, email: string, init?: RequestInit)
   }
 }
 
-async function liveTeachers(email: string): Promise<AdminTeacher[]> {
+async function liveTeachers(admin: { email: string; token: string }): Promise<AdminTeacher[]> {
   const [adminList, publicList, contents] = await Promise.all([
-    fetchLiveJson<{ teachers?: Array<Record<string, unknown>> }>("/api/admin/teachers", email),
-    fetchLiveJson<{ teachers?: Array<Record<string, unknown>> }>("/api/teachers", email),
-    fetchLiveJson<{ contents?: Array<Record<string, unknown>> }>("/api/admin/contents", email),
+    fetchLiveJson<{ teachers?: Array<Record<string, unknown>> }>("/api/admin/teachers", admin.token),
+    fetchLiveJson<{ teachers?: Array<Record<string, unknown>> }>("/api/teachers", admin.token),
+    fetchLiveJson<{ contents?: Array<Record<string, unknown>> }>("/api/admin/contents", admin.token),
   ]);
   const fromApi = [...(adminList?.teachers || []), ...(publicList?.teachers || [])]
     .map(fromLiveRow)
     .filter((row): row is AdminTeacher => Boolean(row));
-  const fromContents = teachersFromUploads((contents?.contents || []).map((row) => mapLiveContent(row, email)));
+  const fromContents = teachersFromUploads((contents?.contents || []).map((row) => mapLiveContent(row, admin.email)));
   return mergeFacultyLists([], [...fromApi, ...fromContents]);
 }
 
 export async function GET(req: Request) {
-  const { admin, error } = requireAdmin(req);
+  const { admin, error } = await requireAdmin(req);
   if (!admin) return error;
 
-  const live = await liveTeachers(admin.email);
+  const live = await liveTeachers(admin);
   return NextResponse.json({ teachers: mergeFacultyLists(SEEDED_TEACHERS, live) });
 }
 
 export async function POST(req: Request) {
-  const { admin, error } = requireAdmin(req);
+  const { admin, error } = await requireAdmin(req);
   if (!admin) return error;
 
   const body = (await req.json().catch(() => ({}))) as { name?: string; subject?: string };
@@ -105,7 +91,7 @@ export async function POST(req: Request) {
   }
   const subject = subjectOf(body.subject);
 
-  const created = await fetchLiveJson<{ teacher?: Record<string, unknown> }>("/api/admin/teachers", admin.email, {
+  const created = await fetchLiveJson<{ teacher?: Record<string, unknown> }>("/api/admin/teachers", admin.token, {
     method: "POST",
     body: JSON.stringify({ name, subject }),
   });

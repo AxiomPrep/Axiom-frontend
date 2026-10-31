@@ -130,7 +130,7 @@ export function BookReader({
         pdfDoc.current = doc;
         setPageCount(doc.numPages);
         setPdfReady(true);
-      } catch (err) {
+      } catch {
         if (!cancelled) {
           pdfDoc.current = null;
           setPdfReady(false);

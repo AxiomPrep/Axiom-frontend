@@ -1,5 +1,3 @@
-/** Subject-correct practice mocks for Biology, Chemistry, Mathematics, and remaining Physics chapters. */
-
 export type SubjectMockQuestion = {
   id: number
   subject: string

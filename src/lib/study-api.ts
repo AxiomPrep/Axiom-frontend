@@ -1,14 +1,4 @@
 import { api } from '@/lib/api'
-import type { Subject, Chapter, PracticeTier, PYQExamSet, Question } from '@/data/mockCurriculum'
-
-/**
- * Client-side API layer for the Axiom Prep backend.
- * Every helper here calls `/api/*` (proxied to the live API).
- */
-
-/* ------------------------------------------------------------------ *
- * Shared types
- * ------------------------------------------------------------------ */
 
 export interface Plan {
   id: string
@@ -50,14 +40,6 @@ export interface LeaderboardEntry {
 export interface CoinWallet {
   gold: number
   silver: number
-}
-
-export interface Me {
-  id: string
-  name: string
-  email: string
-  plan: string | null
-  trialDaysLeft: number
 }
 
 export interface AnnotationRecord {
@@ -118,10 +100,6 @@ export interface QuestionResult {
   difficulty: string
 }
 
-/* ------------------------------------------------------------------ *
- * Helpers
- * ------------------------------------------------------------------ */
-
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
 }
@@ -145,67 +123,6 @@ function num(value: unknown, fallback = 0) {
 
 export function makeId(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`
-}
-
-/* ------------------------------------------------------------------ *
- * Practice
- * ------------------------------------------------------------------ */
-
-export async function getPracticeSubjects(): Promise<Subject[]> {
-  const data = await api<{ subjects?: Array<Record<string, unknown>> }>('/api/practice/subjects')
-  return asList(data.subjects ?? data).map((subject) => ({
-    id: String(subject.slug || subject.id || ''),
-    name: String(subject.name || 'Subject'),
-    tagline: String(subject.tagline || subject.description || ''),
-    color: '',
-    badgeColor: '',
-    totalQuestions: num(subject.total_questions ?? subject.question_count),
-    totalChapters: num(subject.total_chapters),
-    class11Count: num(subject.class_11_count ?? subject.class11_count),
-    class12Count: num(subject.class_12_count ?? subject.class12_count),
-    iconName: '',
-    formula: String(subject.formula || ''),
-  }))
-}
-
-export async function getPracticeSubject(slug: string): Promise<Subject | null> {
-  const subjects = await getPracticeSubjects()
-  return subjects.find((s) => s.id === slug) ?? null
-}
-
-export async function getPracticeChapters(
-  slug: string,
-  classLevel: '11' | '12'
-): Promise<Chapter[]> {
-  const data = await api<{ chapters?: Array<Record<string, unknown>> }>(
-    `/api/practice/subjects/${slug}/classes/${classLevel}/chapters`,
-  )
-  return asList(data.chapters ?? data).map((chapter) => ({
-    id: String(chapter.id),
-    name: String(chapter.title || chapter.name || 'Chapter'),
-    subjectId: slug,
-    classNum: classLevel,
-    jeeCount: num(chapter.jee_count),
-    neetCount: num(chapter.neet_count),
-    advCount: num(chapter.adv_count),
-    totalCount: num(chapter.total_count || chapter.question_count),
-    completedCount: num(chapter.completed_count),
-    highYield: Boolean(chapter.high_yield || chapter.highYield),
-  }))
-}
-
-export async function getPracticeTiers(): Promise<PracticeTier[]> {
-  const data = await api<{ tiers?: Array<Record<string, unknown>> }>('/api/practice/tiers')
-  return asList(data.tiers ?? data).map((item, index) => ({
-    tier: num(item.tier || item.level || index + 1),
-    name: String(item.name || item.title || `Tier ${index + 1}`),
-    subtitle: String(item.subtitle || ''),
-    difficulty: String(item.difficulty || ''),
-    timePerQuestion: String(item.time_per_question || item.time || ''),
-    badge: String(item.badge || `Tier ${item.tier || index + 1}`),
-    description: String(item.description || ''),
-    questionCount: num(item.question_count || item.questions),
-  }))
 }
 
 export async function createPracticeAttempt(payload: {
@@ -241,43 +158,6 @@ export async function createPracticeAttempt(payload: {
     totalSeconds: payload.totalSeconds,
     answers: {},
   }
-}
-
-/* ------------------------------------------------------------------ *
- * PYQ
- * ------------------------------------------------------------------ */
-
-export async function getPyqSubjects(): Promise<Subject[]> {
-  const data = await api<{ subjects?: Array<Record<string, unknown>> }>('/api/pyq/subjects')
-  return asList(data.subjects ?? data).map((subject) => ({
-    id: String(subject.slug || subject.id || ''),
-    name: String(subject.name || 'Subject'),
-    tagline: '',
-    color: '',
-    badgeColor: '',
-    totalQuestions: num(subject.total_questions ?? subject.question_count),
-    totalChapters: 0,
-    class11Count: num(subject.class_11_count),
-    class12Count: num(subject.class_12_count),
-    iconName: '',
-    formula: '',
-  }))
-}
-
-export async function getPyqExams(): Promise<PYQExamSet[]> {
-  const data = await api<{ exams?: Array<Record<string, unknown>> }>('/api/pyq/exams')
-  return asList(data.exams ?? data).map((exam) => ({
-    id: String(exam.id),
-    examName: String(exam.exam_name || exam.name || exam.title || 'Exam'),
-    year: num(exam.year),
-    shift: String(exam.shift || ''),
-    subject: String(exam.subject || ''),
-    classNum: String(exam.class || exam.class_level || '11') === '12' ? '12' : '11',
-    chapter: String(exam.chapter_id || exam.chapter || ''),
-    questionCount: num(exam.question_count),
-    durationMinutes: num(exam.duration_minutes || exam.duration),
-    difficulty: String(exam.difficulty || ''),
-  }))
 }
 
 function questionToPage(item: Record<string, unknown>, index: number) {
@@ -344,30 +224,6 @@ export async function getPracticeSetPages(query: {
       ...questions.map((item, index) => questionToPage(item, index)),
       'Solution notes — your marks sync through /api/annotations.',
     ],
-  }
-}
-
-/* ------------------------------------------------------------------ *
- * Attempts
- * ------------------------------------------------------------------ */
-
-export async function getAttempt(id: string): Promise<AttemptRecord | null> {
-  const data = await api<Record<string, unknown>>(`/api/attempts/${id}`)
-  const nested = asRecord(data.attempt) || data
-  const idValue = String(nested.id || data.id || id)
-  if (!idValue) return null
-  return {
-    id: idValue,
-    type: String(nested.type || 'practice') === 'pyq' ? 'pyq' : 'practice',
-    subjectId: String(nested.subject_id || nested.subject || ''),
-    classLevel: String(nested.class_level || nested.class || '11') === '12' ? '12' : '11',
-    chapterId: String(nested.chapter_id || nested.chapter || ''),
-    tierId: num(nested.tier || nested.tier_id, 0) || undefined,
-    examSetId: nested.exam_set_id ? String(nested.exam_set_id) : undefined,
-    startedAt: String(nested.started_at || new Date().toISOString()),
-    submittedAt: nested.submitted_at ? String(nested.submitted_at) : undefined,
-    totalSeconds: num(nested.total_seconds || nested.duration_sec),
-    answers: {},
   }
 }
 
@@ -485,22 +341,6 @@ export async function getAttemptResult(id: string): Promise<AttemptResult | null
       correct: num(row.correct),
       total: num(row.total || row.question_count),
     })),
-  }
-}
-
-/* ------------------------------------------------------------------ *
- * User / Subscription
- * ------------------------------------------------------------------ */
-
-export async function getMe(): Promise<Me> {
-  const data = await api<Record<string, unknown>>('/api/me')
-  const profile = asRecord(data.user) || asRecord(data.profile) || asRecord(data.me) || data
-  return {
-    id: String(profile.id || data.id || ''),
-    name: String(profile.full_name || profile.name || 'Student'),
-    email: String(profile.email || ''),
-    plan: profile.plan ? String(profile.plan) : null,
-    trialDaysLeft: num(profile.trial_days_left ?? profile.trialDaysLeft),
   }
 }
 
@@ -625,7 +465,6 @@ export async function getPaymentOrders(): Promise<PaymentOrder[]> {
       createdAt: String(row.created_at || ''),
     }))
   } catch {
-    // History is non-blocking for mentorship checkout.
     return []
   }
 }
@@ -669,22 +508,11 @@ export async function payForPlan(
   }
   return new Promise((resolve, reject) => {
     let settled = false
-    const finish = (fn: () => void) => {
+    const fail = () => {
       if (settled) return
       settled = true
-      window.clearTimeout(timer)
-      fn()
+      reject(new Error('Payment failed.'))
     }
-    const timer = window.setTimeout(() => {
-      finish(() =>
-        reject(
-          new Error(
-            'Razorpay opened but payment options did not load. In Razorpay Dashboard add https://axiomprepedu.netlify.app under Website & app, then retry.',
-          ),
-        ),
-      )
-    }, 8000)
-
     const rz = new Razorpay({
       key: checkout.key.trim(),
       amount: checkout.amount,
@@ -699,27 +527,23 @@ export async function payForPlan(
         razorpay_payment_id: string
         razorpay_signature: string
       }) => {
-        finish(() => {
-          void confirmCheckout(response).then(resolve).catch(reject)
-        })
+        if (settled) return
+        settled = true
+        void confirmCheckout(response).then(resolve).catch(reject)
       },
       modal: {
-        ondismiss: () => finish(() => reject(new Error('Payment cancelled.'))),
+        ondismiss: () => fail(),
       },
-    }) as { open: () => void; on: (event: string, cb: (err: { error?: { description?: string } }) => void) => void }
+    }) as { open: () => void; on: (event: string, cb: () => void) => void }
 
-    rz.on('payment.failed', (err) => {
-      finish(() =>
-        reject(new Error(err?.error?.description || 'Razorpay could not start this payment. Add this website in Razorpay Dashboard → Website & app.')),
-      )
-    })
-    rz.open()
+    rz.on('payment.failed', () => fail())
+    try {
+      rz.open()
+    } catch {
+      fail()
+    }
   })
 }
-
-/* ------------------------------------------------------------------ *
- * Coins / Leaderboard
- * ------------------------------------------------------------------ */
 
 export async function getCoins(): Promise<CoinWallet> {
   const data = await api<Record<string, unknown>>('/api/coins')
@@ -743,10 +567,6 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
     silver: Number(entry.silver ?? 0),
   }))
 }
-
-/* ------------------------------------------------------------------ *
- * Annotations
- * ------------------------------------------------------------------ */
 
 function annotationSource(setId: string) {
   const sourceType = setId.startsWith('pyq-') ? 'pyq' : 'quiz'
@@ -798,8 +618,4 @@ export async function saveAnnotation(
     id: String(nested.id || makeId('ann')),
     updatedAt: String(nested.updated_at || new Date().toISOString()),
   }
-}
-
-export async function deleteAnnotation(id: string): Promise<void> {
-  await api(`/api/annotations?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { findSeededAdmin } from "@/data/admin-seed";
 import type { AdminContent } from "@/lib/admin";
+import { adminLiveHeaders, requireRequestAdmin } from "@/lib/admin-request";
 import { getApiOrigin } from "@/lib/api-origin";
 import { inferToolKind } from "@/lib/catalog";
 import { findDestination, findSlot, isYoutubeUrl } from "@/lib/admin-destinations";
@@ -26,27 +26,12 @@ function safeUploadName(name: string) {
 
 const API_ORIGIN = getApiOrigin();
 
-function readAdminEmail(req: Request) {
-  const header = req.headers.get("x-admin-email") || "";
-  const cookie = req.headers.get("cookie")?.match(/(?:^|;\s*)axiom_admin_email=([^;]+)/)?.[1] || "";
-  return decodeURIComponent(header || cookie);
-}
-
 function requireAdmin(req: Request) {
-  const admin = findSeededAdmin(readAdminEmail(req));
-  if (!admin) {
-    return { admin: null, error: NextResponse.json({ error: "forbidden", message: "Admin seed access required." }, { status: 403 }) };
-  }
-  return { admin, error: null };
+  return requireRequestAdmin(req);
 }
 
-function liveHeaders(req: Request, adminEmail: string, json = true) {
-  const headers = new Headers();
-  headers.set("x-admin-email", adminEmail);
-  if (json) headers.set("Content-Type", "application/json");
-  const auth = req.headers.get("authorization");
-  if (auth) headers.set("authorization", auth);
-  return headers;
+function liveHeaders(_req: Request, admin: { token: string }, json = true) {
+  return adminLiveHeaders(admin.token, json);
 }
 
 function meta(description: string | null, key: string) {
@@ -106,12 +91,12 @@ function mapLiveRow(row: Record<string, unknown>, adminEmail: string): AdminCont
 }
 
 export async function GET(req: Request) {
-  const { admin, error } = requireAdmin(req);
+  const { admin, error } = await requireAdmin(req);
   if (error || !admin) return error;
 
   try {
     const live = await fetch(`${API_ORIGIN}/api/admin/contents`, {
-      headers: liveHeaders(req, admin.email),
+      headers: liveHeaders(req, admin),
       cache: "no-store",
       signal: AbortSignal.timeout(20000),
     });
@@ -233,7 +218,7 @@ async function readAdminBody(req: Request): Promise<Record<string, unknown> | nu
 }
 
 export async function POST(req: Request) {
-  const { admin, error } = requireAdmin(req);
+  const { admin, error } = await requireAdmin(req);
   if (error || !admin) return error;
 
   const row = await readAdminBody(req);
@@ -253,7 +238,7 @@ export async function POST(req: Request) {
   const fields = { ...(mapped.body as Record<string, unknown>) };
   const fileName = safeUploadName(field(row, "file_name") || file?.name || "upload.pdf");
 
-  const headers = liveHeaders(req, admin.email, !file);
+  const headers = liveHeaders(req, admin, !file);
   let body: BodyInit;
   if (file) {
     const form = new FormData();
@@ -310,9 +295,8 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const { admin, error } = requireAdmin(req);
+  const { admin, error } = await requireAdmin(req);
   if (error || !admin) return error;
-  const adminEmail = admin.email;
   const id = new URL(req.url).searchParams.get("id") || "";
   if (!id) {
     return NextResponse.json({ error: "id_required", message: "Missing upload id." }, { status: 400 });
@@ -333,7 +317,7 @@ export async function DELETE(req: Request) {
     if (!UUID.test(targetId) || deletedIds.has(targetId)) return false;
     const res = await fetch(`${API_ORIGIN}/api/admin/contents?id=${encodeURIComponent(targetId)}`, {
       method: "DELETE",
-      headers: liveHeaders(req, adminEmail),
+      headers: liveHeaders(req, admin),
       cache: "no-store",
       signal: AbortSignal.timeout(20000),
     });
@@ -349,7 +333,7 @@ export async function DELETE(req: Request) {
   if (match.title) {
     try {
       const listed = await fetch(`${API_ORIGIN}/api/admin/contents`, {
-        headers: liveHeaders(req, adminEmail),
+        headers: liveHeaders(req, admin),
         cache: "no-store",
         signal: AbortSignal.timeout(15000),
       });

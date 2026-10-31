@@ -142,10 +142,8 @@ function ResultContent() {
   return (
     <div className="text-ink py-12 px-4 sm:px-6">
       <div className="relative mx-auto max-w-5xl">
-        {/* Glow backdrop */}
         <div className="pointer-events-none absolute -top-24 left-1/2 h-80 w-[600px] -translate-x-1/2 rounded-full bg-axiom/10 blur-[130px]"></div>
 
-        {/* Top Header */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
           <div>
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-axiom">
@@ -177,9 +175,7 @@ function ResultContent() {
           </div>
         </div>
 
-        {/* Big Metrics Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {/* Total Score */}
           <div className="rounded-2xl border border-axiom/30 bg-linear-to-b from-axiom/10 to-card p-5 backdrop-blur-md">
             <div className="flex items-center justify-between text-xs text-axiom font-bold mb-2">
               <span>SCORE</span>
@@ -194,7 +190,6 @@ function ResultContent() {
             </div>
           </div>
 
-          {/* Accuracy */}
           <div className="rounded-2xl border border-emerald-500/20 bg-card/60 p-5 backdrop-blur-md">
             <div className="flex items-center justify-between text-xs text-emerald-400 font-bold mb-2">
               <span>ACCURACY</span>
@@ -206,7 +201,6 @@ function ResultContent() {
             </div>
           </div>
 
-          {/* Speed / Pace */}
           <div className="rounded-2xl border border-line bg-card/60 p-5 backdrop-blur-md">
             <div className="flex items-center justify-between text-xs text-axiom font-bold mb-2">
               <span>AVG SPEED</span>
@@ -218,7 +212,6 @@ function ResultContent() {
             </div>
           </div>
 
-          {/* Estimated Percentile */}
           <div className="rounded-2xl border border-orange-500/20 bg-card/60 p-5 backdrop-blur-md">
             <div className="flex items-center justify-between text-xs text-orange-400 font-bold mb-2">
               <span>PERCENTILE EST.</span>
@@ -229,7 +222,6 @@ function ResultContent() {
           </div>
         </div>
 
-        {/* Chapter Breakdown Card */}
         <div className="rounded-3xl border border-line bg-card/60 p-6 sm:p-8 backdrop-blur-xl mb-10">
           <div className="flex items-center justify-between border-b border-line/60 pb-4 mb-6">
             <div className="flex items-center gap-2">
@@ -262,7 +254,6 @@ function ResultContent() {
           </div>
         </div>
 
-        {/* Detailed Question Review List */}
         <div className="space-y-6 mb-12">
           <div className="flex items-center justify-between">
             <div>
@@ -285,7 +276,6 @@ function ResultContent() {
                   : 'border-rose-500/30 bg-rose-950/10'
               }`}
             >
-              {/* Question Header */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line/60 pb-3 mb-4">
                 <div className="flex items-center gap-2">
                   <span className="rounded-md bg-card-hover px-2.5 py-0.5 font-mono text-xs font-bold text-ink">
@@ -318,12 +308,10 @@ function ResultContent() {
                 </div>
               </div>
 
-              {/* Question Body */}
               <p className="text-sm sm:text-base font-medium text-ink mb-4 leading-relaxed">
                 {attempt.questionText}
               </p>
 
-              {/* Options Breakdown */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-5">
                 {attempt.options.map((opt) => {
                   const isCorrect = opt.id === attempt.correctOption
@@ -354,7 +342,6 @@ function ResultContent() {
                 })}
               </div>
 
-              {/* AI Step-by-Step Solution */}
               <div className="rounded-xl border border-axiom/20 bg-axiom/5 p-4">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-axiom mb-1.5">
                   <Sparkles className="h-3.5 w-3.5" />
@@ -368,7 +355,6 @@ function ResultContent() {
           ))}
         </div>
 
-        {/* Bottom CTAs */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-line pt-6">
           <Link
             href="/practice"

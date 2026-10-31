@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 
 export type AttemptPayload = {

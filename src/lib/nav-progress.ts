@@ -4,10 +4,6 @@ const listeners = new Set<Listener>();
 let pending = false;
 let hideTimer = 0;
 
-export function isNavPending() {
-  return pending;
-}
-
 export function subscribeNavProgress(listener: Listener) {
   listeners.add(listener);
   listener(pending);

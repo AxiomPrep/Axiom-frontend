@@ -21,19 +21,17 @@ export function getRealtimeClient() {
   return client;
 }
 
-export function resetRealtimeClient() {
-  client?.removeAllChannels();
-  client = null;
-}
+const chatChannels = new Map<string, RealtimeChannel>();
 
 export function subscribeConversation(
   conversationId: string,
-  onMessage: (message: ChatMessage) => void
+  onMessage: (message: ChatMessage) => void,
+  onDelete?: (messageId: string) => void
 ) {
   const supabase = getRealtimeClient();
   if (!supabase) return () => undefined;
   const channel: RealtimeChannel = supabase
-    .channel(`chat:${conversationId}`)
+    .channel(`chat:${conversationId}`, { config: { broadcast: { self: false } } })
     .on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
@@ -41,10 +39,29 @@ export function subscribeConversation(
         onMessage(payload.new as ChatMessage);
       }
     )
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
+      (payload) => {
+        const row = payload.new as ChatMessage;
+        if (row?.deleted_at) onDelete?.(row.id);
+      }
+    )
+    .on("broadcast", { event: "deleted" }, ({ payload }) => {
+      const id = typeof payload?.id === "string" ? payload.id : "";
+      if (id) onDelete?.(id);
+    })
     .subscribe();
+  chatChannels.set(conversationId, channel);
   return () => {
+    chatChannels.delete(conversationId);
     void supabase.removeChannel(channel);
   };
+}
+
+export function publishMessageDeleted(conversationId: string, messageId: string) {
+  const channel = chatChannels.get(conversationId);
+  void channel?.send({ type: "broadcast", event: "deleted", payload: { id: messageId } });
 }
 
 export function subscribeNotifications(userId: string, onNotify: (row: Record<string, unknown>) => void) {

@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { onAuthChange, refreshSession, signInWithEmail, signOut, signUpWithEmail, type AxiomUser } from "@/lib/auth";
-import { safeNextPath } from "@/lib/auth-paths";
+import { landingPath, safeNextPath } from "@/lib/auth-paths";
 import { getAccessToken, setAccessToken } from "@/lib/session";
 import { BrandLoader } from "@/components/BrandLoader";
 import { PageHeader, Shell } from "@/components/ui";
@@ -48,7 +48,9 @@ export default function LoginPage() {
     const token = getAccessToken();
     if (token && params.get("google") !== "ok") {
       setAccessToken(token);
-      router.replace(destination);
+      void refreshSession().then((signedIn) => {
+        router.replace(landingPath(destination, signedIn));
+      });
     }
   }, [router]);
 
@@ -58,7 +60,7 @@ export default function LoginPage() {
     if (params.get("google") === "ok") {
       void refreshSession().then((next) => {
         window.history.replaceState({}, "", "/login");
-        if (next) router.push(destination);
+        if (next) router.push(landingPath(destination, next));
         else {
           setErrorMessage(
             "Google confirmed your account, but the Axiom Prep API did not issue a session token. Use email sign-in, or ask the backend to accept Google id_token on /api/auth/google.",
@@ -112,7 +114,8 @@ export default function LoginPage() {
         }
         if (created) {
           setSuccessMessage("Account created. Welcome to Axiom Prep.");
-          setTimeout(() => router.push(safeNextPath(new URLSearchParams(window.location.search).get("next"))), 900);
+          const nextPath = safeNextPath(new URLSearchParams(window.location.search).get("next"));
+          setTimeout(() => router.push(landingPath(nextPath, created)), 900);
         }
       } else {
         const { user: signedIn, error } = await signInWithEmail(email, password);
@@ -122,7 +125,8 @@ export default function LoginPage() {
         }
         if (signedIn) {
           setSuccessMessage("Signed in. Redirecting…");
-          setTimeout(() => router.push(safeNextPath(new URLSearchParams(window.location.search).get("next"))), 900);
+          const nextPath = safeNextPath(new URLSearchParams(window.location.search).get("next"));
+          setTimeout(() => router.push(landingPath(nextPath, signedIn)), 900);
         }
       }
     } catch {
@@ -188,8 +192,11 @@ export default function LoginPage() {
             <h1 className="mt-2 font-display text-3xl font-semibold text-ink">Welcome, {user.name}</h1>
             <p className="mt-2 text-sm text-muted">{user.email}</p>
             <div className="mt-6 flex flex-col gap-3">
-              <Link href="/mentors" className="btn-primary h-11 text-sm">
-                Continue to chat
+              <Link
+                href={user.isAdmin ? "/admin" : user.isMentor ? "/mentor" : "/mentors"}
+                className="btn-primary h-11 text-sm"
+              >
+                {user.isAdmin ? "Open admin" : user.isMentor ? "Open mentor desk" : "Continue to chat"}
               </Link>
               <button type="button" onClick={() => signOut()} className="btn-ghost h-11 text-sm">
                 Sign out

@@ -58,7 +58,7 @@ export default function MentorChatPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-3 py-4 sm:px-6">
+    <div className="mx-auto max-w-3xl px-3 py-2 sm:px-6">
       <ChatThread conversationId={conversationId} backHref="/mentors" />
     </div>
   );

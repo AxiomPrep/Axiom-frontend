@@ -21,7 +21,6 @@ function subjectOf(item: unknown) {
   return String(row.subject || row.subject_id || row.subject_slug || "").trim();
 }
 
-/** Normalize common subject aliases so math/chem/bio requests still hit mocks. */
 function normalizeSubject(value: string | null | undefined) {
   const raw = String(value || "")
     .trim()

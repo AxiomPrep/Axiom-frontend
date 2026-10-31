@@ -5,17 +5,12 @@ export type AdminTeacher = {
   bio?: string;
   years_experience?: number;
   selections_count?: number;
-  /** When true, the teacher is listed on the student Top Teachers page. */
   listed?: boolean;
 };
 
-/** Usual teaching years when a teacher has no stored figure. */
 export const USUAL_TEACHER_EXPERIENCE = 5;
-
-/** Usual IIT/NIT or NEET selections when a teacher has no stored figure. */
 export const USUAL_TEACHER_SELECTIONS = 40;
 
-/** Teachers shown in the admin Top Teachers dropdown. Edit this list to add faculty. */
 export const SEEDED_TEACHERS: AdminTeacher[] = [
   { id: "abj-sir", name: "ABJ Sir", subject: "physics", bio: "Co-founder of Competishun", years_experience: 12, selections_count: 480, listed: true },
   { id: "gb-sir", name: "GB Sir", subject: "physics", bio: "Co-founder of IIT School", years_experience: 12, selections_count: 450, listed: true },

@@ -86,8 +86,8 @@ export default function MentorsPage() {
       />
       {isMentor ? (
         <p className="mb-6">
-          <Link href="/mentor-inbox" className="text-sm text-axiom hover:text-axiom-hover">
-            Open mentor inbox →
+          <Link href="/mentor" className="text-sm text-axiom hover:text-axiom-hover">
+            Open mentor desk →
           </Link>
         </p>
       ) : null}

@@ -13,12 +13,10 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
-  RotateCcw,
   Sparkles,
   Send,
   Pause,
   Play,
-  HelpCircle,
   X,
   Lightbulb,
 } from 'lucide-react'
@@ -90,14 +88,12 @@ function PlayerContent() {
     4: { selectedOption: null, isMarked: false, timeSpentSeconds: 0, visited: false, revealed: false, solutionViewSeconds: 0 },
   })
 
-  // Global Timer (15 minutes = 900 seconds)
   const [totalSecondsLeft, setTotalSecondsLeft] = useState(900)
   const [isPaused, setIsPaused] = useState(false)
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [attemptId, setAttemptId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  // Create a persisted attempt record (mirrors POST /api/practice/attempt)
   useEffect(() => {
     if (existingAttempt) {
       setAttemptId(existingAttempt)
@@ -115,14 +111,13 @@ function PlayerContent() {
         if (active) setAttemptId(attempt.id)
       })
       .catch(() => {
-        // Keep loaded questions even if the live attempt record is unavailable.
+        /* ignore */
       })
     return () => {
       active = false
     }
   }, [existingAttempt, subjectId, classLevel, chapterId, tierNum])
 
-  // Timer Tick
   useEffect(() => {
     if (isPaused) return
     const interval = setInterval(() => {
@@ -135,7 +130,6 @@ function PlayerContent() {
         return prev - 1
       })
 
-      // Track time on current question (+ solution-view time if revealed)
       setAttempts((prev) => ({
         ...prev,
         [currentIndex]: {
@@ -179,7 +173,6 @@ function PlayerContent() {
     }))
   }
 
-  // Locks the answer, reveals the solution, and starts solution-view timing.
   const handleSubmitAnswer = () => {
     if (currentAttempt.selectedOption === null) return
     setAttempts((prev) => ({
@@ -190,7 +183,6 @@ function PlayerContent() {
         visited: true,
       },
     }))
-    // Persist the answer (mirrors POST /api/attempts/:id/answer)
     if (attemptId) {
       answerAttempt(attemptId, {
         questionId: currentQ.id,
@@ -268,7 +260,6 @@ function PlayerContent() {
     return 'unanswered'
   }
 
-  // Summary counts
   const answeredCount = Object.values(attempts).filter((a) => a.selectedOption).length
   const markedCount = Object.values(attempts).filter((a) => a.isMarked).length
   const unattemptedCount = questions.length - answeredCount
@@ -277,7 +268,6 @@ function PlayerContent() {
     if (submitting) return
     setSubmitting(true)
     const timeTaken = 900 - totalSecondsLeft
-    // Save attempt in localStorage for Results page
     if (typeof window !== 'undefined') {
       const resultPayload = {
         attemptId,
@@ -306,7 +296,6 @@ function PlayerContent() {
       }
       localStorage.setItem('axiom_last_attempt', JSON.stringify(resultPayload))
     }
-    // Finalise the persisted attempt record (mirrors POST /api/attempts/:id/submit)
     if (attemptId) {
       await submitAttempt(attemptId, timeTaken)
     }
@@ -320,7 +309,6 @@ function PlayerContent() {
       </div>
     ) : (
     <div className="text-ink flex flex-col justify-between">
-      {/* Top Test Player Header */}
       <div className="sticky top-[4.5rem] z-30 border-b border-axiom/20 bg-[color:var(--chrome-solid)] px-4 py-3 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -347,7 +335,6 @@ function PlayerContent() {
             </div>
           </div>
 
-          {/* Timer & Controls */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 rounded-xl border border-axiom/30 bg-card px-3.5 py-1.5 shadow-inner">
               <Clock className="h-4 w-4 text-axiom animate-pulse" />
@@ -373,12 +360,9 @@ function PlayerContent() {
         </div>
       </div>
 
-      {/* Main Workspace: Question Area + Palette */}
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col lg:flex-row gap-6 p-4 sm:p-6">
-        {/* Left / Center: Question & Options */}
         <div className="flex-1 flex flex-col justify-between rounded-3xl border border-line bg-card/60 p-6 md:p-8 backdrop-blur-xl">
           <div>
-            {/* Question Info Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line/60 pb-4 mb-6">
               <div className="flex items-center gap-2">
                 <span className="rounded-lg bg-axiom/20 px-3 py-1 font-mono text-xs font-bold text-axiom border border-axiom/30">
@@ -397,7 +381,6 @@ function PlayerContent() {
               </div>
             </div>
 
-            {/* Question Prompt */}
             <div className="space-y-4 mb-8">
               <p className="text-base sm:text-lg font-medium leading-relaxed text-ink">
                 {currentQ.question}
@@ -414,7 +397,6 @@ function PlayerContent() {
               ) : null}
             </div>
 
-            {/* Options List */}
             <div className="space-y-3 mb-8">
               {currentQ.options.map((option) => {
                 const isSelected = currentAttempt.selectedOption === option.id
@@ -461,7 +443,6 @@ function PlayerContent() {
               })}
             </div>
 
-            {/* Solution panel (revealed after submitting the answer) */}
             {currentAttempt.revealed && (
               <div className="mb-8 rounded-2xl border border-axiom/30 bg-axiom/5 p-5 animate-fade-in-up">
                 <div className="flex items-center justify-between mb-3">
@@ -483,7 +464,6 @@ function PlayerContent() {
             )}
           </div>
 
-          {/* Action Buttons Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/60 pt-5">
             <div className="flex items-center gap-2">
               <button
@@ -552,14 +532,12 @@ function PlayerContent() {
           </div>
         </div>
 
-        {/* Right: Question Palette & Status */}
         <div className="w-full lg:w-80 space-y-6">
           <div className="rounded-3xl border border-line bg-card/60 p-5 backdrop-blur-xl">
             <h3 className="text-xs font-bold uppercase tracking-wider text-muted mb-4">
               Question Palette
             </h3>
 
-            {/* Status Legend */}
             <div className="grid grid-cols-2 gap-2 text-[11px] mb-5">
               <div className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded-md bg-emerald-500 inline-block"></span>
@@ -579,7 +557,6 @@ function PlayerContent() {
               </div>
             </div>
 
-            {/* Question Buttons Grid */}
             <div className="grid grid-cols-5 gap-2.5">
               {questions.map((q, idx) => {
                 const status = getQuestionStatus(idx)
@@ -609,7 +586,6 @@ function PlayerContent() {
             </div>
           </div>
 
-          {/* Exam Summary Box */}
           <div className="rounded-3xl border border-axiom/20 bg-axiom/5 p-5 backdrop-blur-xl space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-axiom">
               <Sparkles className="h-4 w-4" />
@@ -622,7 +598,6 @@ function PlayerContent() {
         </div>
       </div>
 
-      {/* Submit Confirmation Modal */}
       {showSubmitModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-fade-in-up">
           <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-axiom/30 bg-card p-6 shadow-2xl">

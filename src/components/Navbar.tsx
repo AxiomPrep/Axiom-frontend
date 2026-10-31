@@ -9,7 +9,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { onAuthChange, refreshSession, signOut, type AxiomUser } from "@/lib/auth";
 
 const LINKS = [
-  { href: "/", label: "Home" },
+  { href: "/home", label: "Home" },
   { href: "/practice", label: "Practice" },
   { href: "/pyq-bank", label: "PYQs" },
   { href: "/originals", label: "Originals" },
@@ -42,18 +42,24 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-40 border-b border-line/70 bg-[color:var(--chrome)] backdrop-blur-xl">
       <div className="mx-auto flex h-[4.5rem] max-w-7xl items-center gap-4 px-4 sm:px-6">
-        <Link href="/" className="flex shrink-0 items-center" aria-label="Axiom Prep home">
+        <Link
+          href={user?.isAdmin ? "/admin" : user?.isMentor ? "/mentor" : "/home"}
+          className="flex shrink-0 items-center"
+          aria-label="Axiom Prep home"
+        >
           <Logo variant="mark" priority />
         </Link>
 
         <nav className="flex flex-1 items-center justify-center gap-0.5">
-          {LINKS.map((link) => {
+          {(user?.isAdmin ? [{ href: "/admin", label: "Admin" }] : user?.isMentor ? [{ href: "/mentor", label: "Desk" }] : LINKS).map((link) => {
             const active =
-              link.href === "/"
-                ? pathname === "/"
-                : link.href === "/timer"
+              link.href === "/timer"
                   ? pathname === "/timer" || pathname === "/study-hub" || pathname.startsWith("/timer/")
-                  : pathname === link.href || pathname.startsWith(`${link.href}/`);
+                  : link.href === "/mentor"
+                    ? pathname === "/mentor" || pathname.startsWith("/mentor-inbox") || pathname.startsWith("/meet/")
+                    : link.href === "/admin"
+                      ? pathname === "/admin" || pathname.startsWith("/admin/")
+                      : pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
               <Link
                 key={link.href}

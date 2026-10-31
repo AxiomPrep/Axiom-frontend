@@ -55,7 +55,6 @@ export default function AnnotationReader({ title, subtitle, pages, setId }: Book
 
   const totalPages = Math.max(pages.length, 1)
 
-  /* ---------------- load persisted annotations ---------------- */
   useEffect(() => {
     let active = true
     getAnnotations(setId)
@@ -80,7 +79,6 @@ export default function AnnotationReader({ title, subtitle, pages, setId }: Book
     }
   }, [setId])
 
-  /* ---------------- drawing helpers ---------------- */
   const ensureCanvasSize = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -130,7 +128,6 @@ export default function AnnotationReader({ title, subtitle, pages, setId }: Book
     })
   }, [page, strokesByPage, ensureCanvasSize])
 
-  // Restore content + canvas when the page changes or persisted html loads
   useEffect(() => {
     if (contentRef.current) {
       contentRef.current.innerHTML = htmlByPage[page] ?? pages[page] ?? ''
@@ -139,7 +136,6 @@ export default function AnnotationReader({ title, subtitle, pages, setId }: Book
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, htmlByPage])
 
-  // Redraw committed strokes when they change (undo / clear / load)
   useEffect(() => {
     redrawCanvas()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -151,7 +147,6 @@ export default function AnnotationReader({ title, subtitle, pages, setId }: Book
     return () => window.removeEventListener('resize', onResize)
   }, [redrawCanvas])
 
-  /* ---------------- drawing pointer handlers ---------------- */
   const getPos = (e: React.PointerEvent) => {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
@@ -219,7 +214,6 @@ export default function AnnotationReader({ title, subtitle, pages, setId }: Book
     }
   }
 
-  /* ---------------- highlight ---------------- */
   const handleMouseUp = () => {
     if (tool !== 'highlight') return
     const sel = window.getSelection()
@@ -240,7 +234,6 @@ export default function AnnotationReader({ title, subtitle, pages, setId }: Book
     }
   }
 
-  /* ---------------- persistence ---------------- */
   const saveCurrent = useCallback(async () => {
     const html = contentRef.current?.innerHTML ?? pages[page] ?? ''
     const marks: { text: string; color: string }[] = []
@@ -328,7 +321,6 @@ export default function AnnotationReader({ title, subtitle, pages, setId }: Book
 
         <div className="h-6 w-px bg-line" />
 
-        {/* Highlight colors */}
         {tool === 'highlight' && (
           <div className="flex items-center gap-1.5">
             {HIGHLIGHT_COLORS.map((c) => (
@@ -344,7 +336,6 @@ export default function AnnotationReader({ title, subtitle, pages, setId }: Book
           </div>
         )}
 
-        {/* Pen colors + size */}
         {(tool === 'pen' || tool === 'eraser') && (
           <>
             {tool === 'pen' && (
@@ -395,17 +386,14 @@ export default function AnnotationReader({ title, subtitle, pages, setId }: Book
         </div>
       </div>
 
-      {/* Book page */}
       <div className="perspective-book">
         <div
           className={`book-page surface relative min-h-[480px] rounded-2xl p-6 sm:p-10 ${
             flipping === 'forward' ? 'flip-forward' : flipping === 'back' ? 'flip-back' : ''
           } ${flipping === null ? 'book-page-enter' : ''}`}
         >
-          {/* Page corner / book feel */}
           <div className="pointer-events-none absolute inset-0 rounded-2xl border border-line/70" />
 
-          {/* Text content (highlightable) */}
           <div
             ref={contentRef}
             contentEditable={tool === 'highlight'}
@@ -414,7 +402,6 @@ export default function AnnotationReader({ title, subtitle, pages, setId }: Book
             className="relative z-0 whitespace-pre-wrap text-sm leading-relaxed text-ink outline-none sm:text-base"
           />
 
-          {/* Drawing canvas overlay */}
           <canvas
             ref={canvasRef}
             onPointerDown={handlePointerDown}
@@ -427,7 +414,6 @@ export default function AnnotationReader({ title, subtitle, pages, setId }: Book
         </div>
       </div>
 
-      {/* Page navigation */}
       <div className="surface flex items-center justify-between rounded-2xl p-3">
         <button
           type="button"
