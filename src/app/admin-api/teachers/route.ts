@@ -45,7 +45,9 @@ function fromLiveRow(row: Record<string, unknown>): AdminTeacher | null {
 async function fetchLiveJson<T>(path: string, token: string, init?: RequestInit): Promise<T | null> {
   try {
     const headers = adminLiveHeaders(token, Boolean(init?.body));
-    init?.headers && new Headers(init.headers).forEach((value, key) => headers.set(key, value));
+    if (init?.headers) {
+      new Headers(init.headers).forEach((value, key) => headers.set(key, value));
+    }
     const res = await fetch(`${API_ORIGIN}${path}`, {
       ...init,
       headers,

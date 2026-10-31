@@ -81,19 +81,3 @@ export async function loadAttempt(id: string): Promise<AttemptPayload | null> {
   }
   return cached;
 }
-
-export function useStartTest() {
-  const router = useRouter();
-
-  async function startNamed(testId: string, title?: string) {
-    const data = await api<AttemptPayload>(`/api/tests/${testId}/start`, {
-      method: "POST",
-      body: "{}",
-    });
-    saveAttempt({ ...data, title });
-    router.push(`/attempts/${data.attempt.id}`);
-    return data;
-  }
-
-  return { startNamed };
-}

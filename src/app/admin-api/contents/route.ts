@@ -91,8 +91,9 @@ function mapLiveRow(row: Record<string, unknown>, adminEmail: string): AdminCont
 }
 
 export async function GET(req: Request) {
-  const { admin, error } = await requireAdmin(req);
-  if (error || !admin) return error;
+  const gated = await requireAdmin(req);
+  if (!gated.admin) return gated.error;
+  const admin = gated.admin;
 
   try {
     const live = await fetch(`${API_ORIGIN}/api/admin/contents`, {
@@ -218,8 +219,9 @@ async function readAdminBody(req: Request): Promise<Record<string, unknown> | nu
 }
 
 export async function POST(req: Request) {
-  const { admin, error } = await requireAdmin(req);
-  if (error || !admin) return error;
+  const gated = await requireAdmin(req);
+  if (!gated.admin) return gated.error;
+  const admin = gated.admin;
 
   const row = await readAdminBody(req);
   if (!row) {
@@ -295,8 +297,9 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const { admin, error } = await requireAdmin(req);
-  if (error || !admin) return error;
+  const gated = await requireAdmin(req);
+  if (!gated.admin) return gated.error;
+  const admin = gated.admin;
   const id = new URL(req.url).searchParams.get("id") || "";
   if (!id) {
     return NextResponse.json({ error: "id_required", message: "Missing upload id." }, { status: 400 });
